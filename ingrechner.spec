@@ -2,7 +2,7 @@
 # Aufruf (unter Windows):  pyinstaller ingrechner.spec --noconfirm
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_data_files
+from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
 
 # Rechenmodule werden zur Laufzeit automatisch gefunden -> explizit mitnehmen.
 # (direkt aus dem Dateisystem, damit jedes neue Modul ohne Spec-Änderung im Build landet)
@@ -15,12 +15,15 @@ hidden = sorted(
 a = Analysis(
     ["run.py"],
     pathex=["."],
-    datas=[("ingrechner/resources", "ingrechner/resources"), *collect_data_files("pint", excludes=["**/testsuite/**"])],
-    hiddenimports=hidden,
+    datas=[("ingrechner/resources", "ingrechner/resources"),
+           *collect_data_files("pint", excludes=["**/testsuite/**"]),
+           *collect_data_files("faster_whisper")],          # Sprachaktivitätserkennung (silero_vad.onnx)
+    binaries=[*collect_dynamic_libs("ctranslate2"), *collect_dynamic_libs("onnxruntime")],
+    hiddenimports=[*hidden, "PySide6.QtMultimedia"],
     excludes=[
         "tkinter", "lxml", "pytest", "_pytest", "pandas", "scipy", "IPython", "pint.testsuite",
         "PySide6.QtWebEngineCore", "PySide6.QtWebEngineWidgets", "PySide6.QtWebEngineQuick",
-        "PySide6.Qt3DCore", "PySide6.QtQuick", "PySide6.QtQml", "PySide6.QtMultimedia",
+        "PySide6.Qt3DCore", "PySide6.QtQuick", "PySide6.QtQml",
         "PySide6.QtCharts", "PySide6.QtDataVisualization", "PySide6.QtGraphs",
     ],
     noarchive=False,

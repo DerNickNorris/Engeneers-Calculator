@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ingrechner"
-version = "0.2.0"
+version = "0.3.0"
 description = "Modularer Ingenieurs-Rechner (Maschinenbau, Statik, Elektro, Fluid) als Desktop-App"
 requires-python = ">=3.11"
 dependencies = [
@@ -14,6 +14,7 @@ dependencies = [
     "matplotlib>=3.8",
     "reportlab>=4.0",
     "openpyxl>=3.1",
+    "faster-whisper>=1.1",   # Offline-Diktat (optional: ohne Paket ist das Diktat deaktiviert)
 ]
 
 [project.optional-dependencies]

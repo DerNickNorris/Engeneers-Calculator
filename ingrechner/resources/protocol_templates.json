@@ -1,0 +1,61 @@
+{
+  "format": "ingrechner-protokollvorlagen",
+  "version": 1,
+  "vorlagen": [
+    {
+      "id": "b:baubesprechung",
+      "name": "Baubesprechung",
+      "beschreibung": "Regelmäßige Baubesprechung mit Bauherr, Planern und Firmen – Tagesordnung, Aufgaben mit Terminen und Fortschreibung offener Punkte.",
+      "titel": "Protokoll Baubesprechung",
+      "schlusstext": "Einwände gegen dieses Protokoll sind innerhalb von 7 Kalendertagen nach Zugang schriftlich mitzuteilen. Andernfalls gilt der Inhalt als anerkannt.",
+      "blocks": [
+        {"key": "projekt", "typ": "feld", "titel": "Projekt", "hinweis": "Bauvorhaben / Projektbezeichnung"},
+        {"key": "ort", "typ": "feld", "titel": "Ort", "hinweis": "z. B. Baucontainer, Besprechungsraum"},
+        {"key": "datum", "typ": "datum", "titel": "Datum"},
+        {"key": "zeit", "typ": "zeit", "titel": "Beginn / Ende", "hinweis": "z. B. 09:00 – 10:30 Uhr"},
+        {"key": "leitung", "typ": "feld", "titel": "Besprechungsleitung"},
+        {"key": "protokoll", "typ": "feld", "titel": "Protokollführung"},
+        {"key": "teilnehmer", "typ": "teilnehmer", "titel": "Teilnehmer und Verteiler"},
+        {"key": "top", "typ": "tagesordnung", "titel": "Tagesordnung und Besprechungsinhalte",
+         "vorgaben": ["Begrüßung und Feststellung der Teilnehmer", "Genehmigung des letzten Protokolls",
+                      "Stand der Arbeiten und Terminplan", "Technische Klärungen", "Verschiedenes"]},
+        {"key": "aufgaben", "typ": "aufgaben", "titel": "Aufgaben, Beschlüsse und Festlegungen"},
+        {"key": "naechster", "typ": "feld", "titel": "Nächster Termin"}
+      ]
+    },
+    {
+      "id": "b:jourfixe",
+      "name": "Jour fixe / Teambesprechung",
+      "beschreibung": "Interne Teambesprechung mit Themenliste und Aufgaben.",
+      "titel": "Protokoll Jour fixe",
+      "schlusstext": "",
+      "blocks": [
+        {"key": "thema", "typ": "feld", "titel": "Team / Thema"},
+        {"key": "datum", "typ": "datum", "titel": "Datum"},
+        {"key": "zeit", "typ": "zeit", "titel": "Uhrzeit"},
+        {"key": "protokoll", "typ": "feld", "titel": "Protokollführung"},
+        {"key": "teilnehmer", "typ": "teilnehmer", "titel": "Teilnehmer"},
+        {"key": "top", "typ": "tagesordnung", "titel": "Themen",
+         "vorgaben": ["Offene Punkte aus der letzten Besprechung", "Aktuelle Projekte", "Sonstiges"]},
+        {"key": "aufgaben", "typ": "aufgaben", "titel": "Aufgaben"},
+        {"key": "naechster", "typ": "feld", "titel": "Nächster Termin"}
+      ]
+    },
+    {
+      "id": "b:gespraechsnotiz",
+      "name": "Gesprächs- / Telefonnotiz",
+      "beschreibung": "Kurze Notiz zu einem Gespräch oder Telefonat – ideal zum Diktieren.",
+      "titel": "Gesprächsnotiz",
+      "schlusstext": "",
+      "blocks": [
+        {"key": "projekt", "typ": "feld", "titel": "Projekt"},
+        {"key": "partner", "typ": "feld", "titel": "Gesprächspartner", "hinweis": "Name, Firma, Telefon"},
+        {"key": "datum", "typ": "datum", "titel": "Datum"},
+        {"key": "zeit", "typ": "zeit", "titel": "Uhrzeit"},
+        {"key": "anlass", "typ": "feld", "titel": "Anlass / Thema"},
+        {"key": "inhalt", "typ": "text", "titel": "Gesprächsinhalt", "hinweis": "Ergebnisse und Vereinbarungen – Mikrofon-Schaltfläche zum Diktieren"},
+        {"key": "aufgaben", "typ": "aufgaben", "titel": "Vereinbarungen / Aufgaben"}
+      ]
+    }
+  ]
+}

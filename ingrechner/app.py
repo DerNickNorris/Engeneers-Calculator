@@ -66,6 +66,18 @@ def selftest() -> int:
         "Einheiten": abs(convert(1, "bar", "psi") - 14.503773773) < 1e-6,
         "Materialdatenbank": len(MaterialLibrary(None).builtin) >= 20,
     }
+    # Phase 3: Protokolle und Spracherkennung
+    from ingrechner.core import speech
+    from ingrechner.core.protocols import Protocol, TemplateLibrary
+
+    checks["Protokollvorlagen"] = bool(Protocol.new(TemplateLibrary(None).get("b:baubesprechung")).values)
+    checks["Spracherkennung installiert"] = speech.available()
+    model = next((a.split("=", 1)[1] for a in sys.argv if a.startswith("--selftest-model=")), None)
+    if model:  # optional: echte Erkennung mit Testaudio (--selftest-audio=...)
+        audio = next((a.split("=", 1)[1] for a in sys.argv if a.startswith("--selftest-audio=")), None)
+        text = speech.SpeechEngine(model).transcribe(audio) if audio else ""
+        lines.append(f"    Erkannt: {text!r}")
+        checks["Spracherkennung mit Modell"] = bool(text.strip())
     for name, passed in checks.items():
         ok &= passed
         lines.append(f"{'OK ' if passed else 'ERR'} {name}")

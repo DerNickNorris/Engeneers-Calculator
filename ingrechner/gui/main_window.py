@@ -27,10 +27,7 @@ ROLE_ID = Qt.UserRole
 ROLE_KEYWORDS = Qt.UserRole + 1
 
 # Bereiche späterer Ausbaustufen – sichtbar, aber noch deaktiviert
-PLANNED = {
-    "Protokolle": ["Besprechungsprotokoll", "Vorlagen-Editor"],
-}
-TOOLS_CATEGORY = "Werkzeuge"
+PLANNED: dict[str, list[str]] = {}
 
 
 class MainWindow(QMainWindow):
@@ -110,16 +107,19 @@ class MainWindow(QMainWindow):
             child.setData(0, ROLE_KEYWORDS, " ".join((cls.title, cls.category, *cls.keywords)).lower())
             child.setToolTip(0, cls.description)
             cats[cls.category].addChild(child)
-        tools_item = QTreeWidgetItem([TOOLS_CATEGORY])
-        tools_item.setFont(0, bold)
-        tools_item.setFlags(Qt.ItemIsEnabled)
-        self.tree.addTopLevelItem(tools_item)
+        tool_cats: dict[str, QTreeWidgetItem] = {}
         for spec in self.tool_specs:
+            if spec.category not in tool_cats:
+                item = QTreeWidgetItem([spec.category])
+                item.setFont(0, bold)
+                item.setFlags(Qt.ItemIsEnabled)
+                self.tree.addTopLevelItem(item)
+                tool_cats[spec.category] = item
             child = QTreeWidgetItem([spec.title])
             child.setData(0, ROLE_ID, spec.id)
-            child.setData(0, ROLE_KEYWORDS, " ".join((spec.title, TOOLS_CATEGORY, *spec.keywords)).lower())
+            child.setData(0, ROLE_KEYWORDS, " ".join((spec.title, spec.category, *spec.keywords)).lower())
             child.setToolTip(0, spec.description)
-            tools_item.addChild(child)
+            tool_cats[spec.category].addChild(child)
         for cat, names in PLANNED.items():
             item = QTreeWidgetItem([f"{cat}  (geplant)"])
             item.setFont(0, bold)
@@ -154,7 +154,9 @@ class MainWindow(QMainWindow):
             f"<li><b>Bericht:</b> PDF-Rechnungsnachweis mit Rechenweg, Skizze und Diagramm (Strg+P)</li>"
             f"<li><b>Export:</b> Ergebnisse als Excel- oder CSV-Datei</li>"
             f"<li><b>Werkzeuge:</b> Einheitenumrechner, wissenschaftlicher Rechner, Materialdatenbank "
-            f"(Werkstoffwerte per „Werkstoff …“ in Rechner übernehmen) und Funktionsplotter</li></ul>"
+            f"(Werkstoffwerte per „Werkstoff …“ in Rechner übernehmen) und Funktionsplotter</li>"
+            f"<li><b>Protokolle:</b> Besprechungsprotokolle nach Team-Vorlagen, Diktat per Mikrofon "
+            f"(offline, Whisper), Folgeprotokoll mit offenen Aufgaben, PDF-Ausgabe</li></ul>"
             f"<p style='color:{C['muted']}'>Hinweis: Vereinfachte Rechenverfahren. Ergebnisse vor Verwendung in "
             f"Nachweisen fachkundig gegen die Originalnorm prüfen.</p>"
         )
@@ -236,7 +238,7 @@ class MainWindow(QMainWindow):
             self.open_calculator(calc_id)
 
     def open_calculator(self, calc_id: str) -> QWidget:
-        if calc_id.startswith("tool."):
+        if calc_id.startswith(("tool.", "proto.")):
             return self.open_tool(calc_id)
         view = self.views.get(calc_id)
         if view is None:
@@ -265,7 +267,7 @@ class MainWindow(QMainWindow):
         elif hasattr(view, "refresh"):
             view.refresh()
         self.stack.setCurrentWidget(view)
-        self.statusBar().showMessage(f"{TOOLS_CATEGORY} › {spec.title}")
+        self.statusBar().showMessage(f"{spec.category} › {spec.title}")
         self._update_actions()
         return view
 
@@ -435,18 +437,23 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(f"Exportiert: {path}", 6000)
 
     # ------------------------------------------------------------ Sonstiges
-    def edit_settings(self) -> None:
-        dlg = SettingsDialog(self.ctx, self)
+    def edit_settings(self, tab: str | None = None) -> None:
+        dlg = SettingsDialog(self.ctx, self, tab=tab)
         if dlg.exec():
-            mat_view = self.views.get("tool.materials")
-            if mat_view is not None:
-                mat_view.refresh()
+            for key in ("tool.materials", "proto.templates", "proto.editor"):
+                view = self.views.get(key)
+                if view is not None and hasattr(view, "refresh"):
+                    view.refresh()
             self.statusBar().showMessage("Einstellungen gespeichert", 4000)
 
     def about(self) -> None:
         QMessageBox.about(self, f"Über {APP_NAME}", ABOUT_HTML)
 
     def closeEvent(self, event) -> None:
+        for view in self.views.values():
+            if hasattr(view, "maybe_close") and not view.maybe_close():
+                event.ignore()
+                return
         if self._confirm_discard():
             self.settings.setValue("geometry", self.saveGeometry())
             event.accept()

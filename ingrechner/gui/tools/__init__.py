@@ -15,9 +15,12 @@ class ToolSpec:
     description: str
     keywords: tuple[str, ...]
     factory: Callable[..., QWidget]   # factory(context) -> QWidget
+    category: str = "Werkzeuge"
 
 
 def tools() -> list[ToolSpec]:
+    from ..protocols.protocol_view import ProtocolView
+    from ..protocols.template_editor import TemplateEditorView
     from .materials_view import MaterialsView
     from .plotter import PlotterView
     from .sci_calc import SciCalcView
@@ -32,4 +35,9 @@ def tools() -> list[ToolSpec]:
                  ("material", "werkstoff", "stahl", "aluminium", "e-modul", "dichte", "streckgrenze"), MaterialsView),
         ToolSpec("tool.plotter", "Funktionsplotter", "Funktionen und Messwerte darstellen",
                  ("plot", "diagramm", "funktion", "graph", "kennlinie", "messwerte"), PlotterView),
+        ToolSpec("proto.editor", "Besprechungsprotokoll", "Protokolle nach Vorlage erstellen, mit Diktat",
+                 ("protokoll", "besprechung", "baubesprechung", "diktat", "sprache", "jour fixe", "notiz"),
+                 ProtocolView, "Protokolle"),
+        ToolSpec("proto.templates", "Vorlagen-Editor", "Protokollvorlagen für das Team gestalten",
+                 ("vorlage", "protokoll", "template", "baustein"), TemplateEditorView, "Protokolle"),
     ]
