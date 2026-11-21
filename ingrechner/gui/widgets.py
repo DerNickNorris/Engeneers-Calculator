@@ -97,3 +97,23 @@ class MessageBox(QFrame):
         text.setTextInteractionFlags(Qt.TextSelectableByMouse)
         lay.addWidget(icon)
         lay.addWidget(text, 1)
+
+
+def page_header(layout: QVBoxLayout, title: str, description: str, badge: str | None = None) -> None:
+    """Einheitlicher Seitenkopf (Titel, optional Badge, Beschreibung)."""
+    t = QLabel(title)
+    t.setObjectName("CalcTitle")
+    head = QHBoxLayout()
+    head.addWidget(t)
+    if badge:
+        b = QLabel(badge)
+        b.setObjectName("NormBadge")
+        b.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
+        head.addSpacing(10)
+        head.addWidget(b, 0, Qt.AlignVCenter)
+    head.addStretch(1)
+    layout.addLayout(head)
+    d = QLabel(description)
+    d.setObjectName("CalcDesc")
+    d.setWordWrap(True)
+    layout.addWidget(d)

@@ -8,7 +8,9 @@ Systemskizze, Diagramm, PDF-Rechnungsnachweis und Excel/CSV-Export.
 > sind vor Verwendung in Nachweisen von fachkundiger Stelle gegen die jeweilige
 > Originalnorm zu prüfen.
 
-## Stand: Phase 1
+## Stand: Phase 2 (Version 0.2.0)
+
+**Rechner (Phase 1)**
 
 | Fachgebiet      | Rechner                    | Grundlage                                        |
 |-----------------|----------------------------|--------------------------------------------------|
@@ -21,8 +23,30 @@ Funktionen: Seitenleiste mit Suche (Strg+K) · Eingabeprüfung mit Warnungen ·
 Systemskizze · Rechenweg (Formel → eingesetzte Werte → Ergebnis) · Diagramm ·
 Projektdatei `.irp` · PDF-Bericht (Strg+P) · Excel-Export (Strg+E) / CSV.
 
-Geplant: Phase 2 Werkzeuge (Einheitenumrechner, wissenschaftlicher Rechner,
-Materialdatenbank) · Phase 3 Besprechungsprotokolle mit Vorlagen-Editor und
+**Werkzeuge (Phase 2)**
+
+| Werkzeug                     | Kurzbeschreibung |
+|------------------------------|------------------|
+| Einheitenumrechner           | 24 Kategorien (Länge … Druck, Energie, Drehmoment, Viskosität, Flächenmoment); ein Wert → alle Einheiten; Freitext „3,5 bar in psi“ |
+| Wissenschaftlicher Rechner   | Tastenfeld, DEG/RAD, Variablen (`a = 5`), `ans`, Verlauf (↑/↓), Live-Vorschau; Zustand bleibt erhalten |
+| Materialdatenbank            | 21 mitgelieferte Werkstoffe (Stahl, Edelstahl, Guss, Aluminium, Kupfer, Beton, Holz, Kunststoffe) + eigene Werkstoffe in einer Team-Datei; Übernahme in Rechner über „Werkstoff …“ |
+| Funktionsplotter             | bis zu 6 Funktionen f(x), Messwerte aus Excel einfügen, Polstellen-Erkennung, Zoom, Wert an einer Stelle, Wertetabelle als CSV |
+
+Schreibweise im Rechner und Plotter: Dezimalkomma oder -punkt, Argumente mit
+Semikolon (`max(1; 2,5)`), Potenz `^`, implizite Multiplikation (`2pi`, `3(x+1)`).
+Der Auswerter prüft jeden Ausdruck gegen eine Positivliste – es wird kein
+beliebiger Python-Code ausgeführt.
+
+**Team-Materialdatei:** Unter *Extras › Einstellungen* einen Pfad auf einem
+Netzlaufwerk wählen (z. B. `\\server\technik\materialien.json`). Alle Kollegen,
+die denselben Pfad eintragen, teilen sich die eigenen Werkstoffe. Vor jeder
+Änderung wird die Datei neu gelesen, damit Änderungen anderer nicht verloren gehen.
+
+> Die mitgelieferten Werkstoffwerte sind Richtwerte (Mindestwerte der genannten
+> Norm für den angegebenen Lieferzustand bzw. typische physikalische Werte).
+> Vor Verwendung gegen Norm oder Werkstoffzeugnis prüfen.
+
+**Geplant:** Phase 3 Besprechungsprotokolle mit Vorlagen-Editor und
 Offline-Diktat (Whisper) · Phase 4 weitere Fachrechner.
 
 ## Starten (Entwicklung)
@@ -69,6 +93,8 @@ ingrechner/
     svg.py         Baukasten für Systemskizzen
   calculators/     ein Unterordner je Fachgebiet, eine Datei je Rechner
   gui/             PySide6-Oberfläche (generisch, kein Code je Rechner nötig)
+    tools/         Werkzeuge: Einheitenumrechner, Rechner, Materialien, Plotter
+  resources/       Icon, materials.json (mitgelieferte Werkstoffe)
 tests/
 ```
 
@@ -106,5 +132,7 @@ class Leistung(Calculator):
             self.warn("Über 3,7 kW – Schieflastgrenze beachten.")
 ```
 
-Optional: `sketch_svg()` für die Systemskizze und `plot()` für ein Diagramm.
+Optional: `sketch_svg()` für die Systemskizze, `plot()` für ein Diagramm und
+`material_map = {"E": "E", "Re": "Re"}`, um Werkstoffwerte aus der Datenbank
+übernehmen zu können (Feldschlüssel → Materialeigenschaft).
 Danach einen Test mit Referenzwerten in `tests/` ergänzen.

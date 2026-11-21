@@ -17,7 +17,9 @@ from ingrechner.core.project import FILE_SUFFIX, Project
 from ingrechner.core.report import build_pdf, plot_png
 
 from .calc_view import CalculatorView
-from .dialogs import ABOUT_HTML, ProjectMetaDialog
+from .context import AppContext
+from .dialogs import ABOUT_HTML, ProjectMetaDialog, SettingsDialog
+from .tools import tools
 from .theme import C
 from .widgets import Card, svg_to_png
 
@@ -26,18 +28,21 @@ ROLE_KEYWORDS = Qt.UserRole + 1
 
 # Bereiche späterer Ausbaustufen – sichtbar, aber noch deaktiviert
 PLANNED = {
-    "Werkzeuge": ["Einheitenumrechner", "Wissenschaftlicher Rechner", "Materialdatenbank"],
     "Protokolle": ["Besprechungsprotokoll", "Vorlagen-Editor"],
 }
+TOOLS_CATEGORY = "Werkzeuge"
 
 
 class MainWindow(QMainWindow):
-    def __init__(self) -> None:
+    def __init__(self, context: AppContext | None = None) -> None:
         super().__init__()
-        self.settings = QSettings("Ingenieurs-Rechner", "Ingenieurs-Rechner")
+        self.ctx = context or AppContext()
+        self.settings: QSettings = self.ctx.settings
         self.calc_classes = registry.discover()
-        self.views: dict[str, CalculatorView] = {}
+        self.tool_specs = tools()
+        self.views: dict[str, QWidget] = {}
         self.project = Project()
+        self.project.meta.bearbeiter = self.ctx.default_author
         self.resize(1360, 860)
         self._build_ui()
         self._build_actions()
@@ -105,6 +110,16 @@ class MainWindow(QMainWindow):
             child.setData(0, ROLE_KEYWORDS, " ".join((cls.title, cls.category, *cls.keywords)).lower())
             child.setToolTip(0, cls.description)
             cats[cls.category].addChild(child)
+        tools_item = QTreeWidgetItem([TOOLS_CATEGORY])
+        tools_item.setFont(0, bold)
+        tools_item.setFlags(Qt.ItemIsEnabled)
+        self.tree.addTopLevelItem(tools_item)
+        for spec in self.tool_specs:
+            child = QTreeWidgetItem([spec.title])
+            child.setData(0, ROLE_ID, spec.id)
+            child.setData(0, ROLE_KEYWORDS, " ".join((spec.title, TOOLS_CATEGORY, *spec.keywords)).lower())
+            child.setToolTip(0, spec.description)
+            tools_item.addChild(child)
         for cat, names in PLANNED.items():
             item = QTreeWidgetItem([f"{cat}  (geplant)"])
             item.setFont(0, bold)
@@ -137,7 +152,9 @@ class MainWindow(QMainWindow):
             f"<li><b>Berechnen:</b> Enter, F5 oder Schaltfläche „Berechnen“</li>"
             f"<li><b>Projekt:</b> Speichert die Eingaben aller Rechner in einer <code>{FILE_SUFFIX}</code>-Datei</li>"
             f"<li><b>Bericht:</b> PDF-Rechnungsnachweis mit Rechenweg, Skizze und Diagramm (Strg+P)</li>"
-            f"<li><b>Export:</b> Ergebnisse als Excel- oder CSV-Datei</li></ul>"
+            f"<li><b>Export:</b> Ergebnisse als Excel- oder CSV-Datei</li>"
+            f"<li><b>Werkzeuge:</b> Einheitenumrechner, wissenschaftlicher Rechner, Materialdatenbank "
+            f"(Werkstoffwerte per „Werkstoff …“ in Rechner übernehmen) und Funktionsplotter</li></ul>"
             f"<p style='color:{C['muted']}'>Hinweis: Vereinfachte Rechenverfahren. Ergebnisse vor Verwendung in "
             f"Nachweisen fachkundig gegen die Originalnorm prüfen.</p>"
         )
@@ -173,6 +190,8 @@ class MainWindow(QMainWindow):
         for a in (self.a_new, self.a_open, None, self.a_save, self.a_save_as, None, self.a_meta, None,
                   self.a_pdf, self.a_xlsx, self.a_csv, None, self.a_quit):
             m.addSeparator() if a is None else m.addAction(a)
+        x = self.menuBar().addMenu("E&xtras")
+        x.addAction(act("Einstellungen …", self.edit_settings, QKeySequence.Preferences))
         h = self.menuBar().addMenu("&Hilfe")
         h.addAction(act("Über …", self.about))
 
@@ -216,11 +235,13 @@ class MainWindow(QMainWindow):
         if calc_id:
             self.open_calculator(calc_id)
 
-    def open_calculator(self, calc_id: str) -> CalculatorView:
+    def open_calculator(self, calc_id: str) -> QWidget:
+        if calc_id.startswith("tool."):
+            return self.open_tool(calc_id)
         view = self.views.get(calc_id)
         if view is None:
             cls = next(c for c in self.calc_classes if c.id == calc_id)
-            view = CalculatorView(cls())
+            view = CalculatorView(cls(), context=self.ctx)
             saved = self.project.inputs(calc_id)
             if saved:
                 view.set_values(saved)
@@ -231,6 +252,20 @@ class MainWindow(QMainWindow):
             self.stack.addWidget(view)
         self.stack.setCurrentWidget(view)
         self.statusBar().showMessage(f"{view.calc.category} › {view.calc.title}")
+        self._update_actions()
+        return view
+
+    def open_tool(self, tool_id: str) -> QWidget:
+        view = self.views.get(tool_id)
+        spec = next(t for t in self.tool_specs if t.id == tool_id)
+        if view is None:
+            view = spec.factory(self.ctx)
+            self.views[tool_id] = view
+            self.stack.addWidget(view)
+        elif hasattr(view, "refresh"):
+            view.refresh()
+        self.stack.setCurrentWidget(view)
+        self.statusBar().showMessage(f"{TOOLS_CATEGORY} › {spec.title}")
         self._update_actions()
         return view
 
@@ -271,10 +306,11 @@ class MainWindow(QMainWindow):
         return r == QMessageBox.Discard
 
     def _reset_views(self) -> None:
-        for view in self.views.values():
+        """Rechneransichten schließen (Projektwechsel). Werkzeuge bleiben erhalten."""
+        for key in [k for k, v in self.views.items() if isinstance(v, CalculatorView)]:
+            view = self.views.pop(key)
             self.stack.removeWidget(view)
             view.deleteLater()
-        self.views.clear()
         self.stack.setCurrentWidget(self.welcome)
         self.tree.clearSelection()
         self._update_actions()
@@ -283,6 +319,7 @@ class MainWindow(QMainWindow):
         if not self._confirm_discard():
             return
         self.project = Project()
+        self.project.meta.bearbeiter = self.ctx.default_author
         self._reset_views()
         self._update_title()
         self.edit_meta()
@@ -323,7 +360,8 @@ class MainWindow(QMainWindow):
 
     def _save_to(self, path: Path) -> bool:
         for view in self.views.values():
-            self.project.set_inputs(view.calc.id, view.valid_values(), view.notiz.toPlainText())
+            if isinstance(view, CalculatorView):
+                self.project.set_inputs(view.calc.id, view.valid_values(), view.notiz.toPlainText())
         try:
             saved = self.project.save(path)
         except OSError as exc:
@@ -397,6 +435,14 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(f"Exportiert: {path}", 6000)
 
     # ------------------------------------------------------------ Sonstiges
+    def edit_settings(self) -> None:
+        dlg = SettingsDialog(self.ctx, self)
+        if dlg.exec():
+            mat_view = self.views.get("tool.materials")
+            if mat_view is not None:
+                mat_view.refresh()
+            self.statusBar().showMessage("Einstellungen gespeichert", 4000)
+
     def about(self) -> None:
         QMessageBox.about(self, f"Über {APP_NAME}", ABOUT_HTML)
 

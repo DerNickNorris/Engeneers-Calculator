@@ -24,6 +24,7 @@ class BiegungEinfeldtraeger(Calculator):
     )
     norm = "Technische Mechanik (Bernoulli-Balken, linear-elastisch); vgl. Roloff/Matek, Dubbel"
     keywords = ("balken", "träger", "biegung", "durchbiegung", "biegespannung", "moment")
+    material_map = {"E": "E", "Re": "Re"}
 
     fields = [
         ChoiceField("lastfall", "Lastfall", [

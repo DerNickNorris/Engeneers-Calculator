@@ -26,9 +26,10 @@ class CalculatorView(QWidget):
     changed = Signal()      # Eingaben geändert
     computed = Signal()     # neu berechnet
 
-    def __init__(self, calc: Calculator, parent: QWidget | None = None) -> None:
+    def __init__(self, calc: Calculator, parent: QWidget | None = None, context=None) -> None:
         super().__init__(parent)
         self.calc = calc
+        self.ctx = context
         self.result: CalcResult | None = None
         self._stale = True
         self._editors: dict[str, QLineEdit | QComboBox] = {}
@@ -100,6 +101,11 @@ class CalculatorView(QWidget):
         reset.clicked.connect(lambda: (self.set_values(self.calc.defaults()), self.changed.emit()))
         btns.addWidget(self.btn_calc)
         btns.addWidget(reset)
+        if self.calc.material_map and self.ctx is not None:
+            mat_btn = QPushButton("Werkstoff …")
+            mat_btn.setToolTip("Kennwerte aus der Materialdatenbank übernehmen")
+            mat_btn.clicked.connect(self.pick_material)
+            btns.addWidget(mat_btn)
         btns.addStretch(1)
         in_card.body.addLayout(btns)
         lcol.addWidget(in_card)
@@ -211,6 +217,39 @@ class CalculatorView(QWidget):
         self._editors[f.key] = editor
         self._errors[f.key] = err
         self._rows[f.key] = [label, holder]
+
+    # ------------------------------------------------------- Werkstoff
+    def pick_material(self) -> None:
+        from .tools.materials_view import MaterialPickerDialog
+
+        dlg = MaterialPickerDialog(self.ctx, tuple(self.calc.material_map.values()), self)
+        if dlg.exec() and dlg.material is not None:
+            self.apply_material(dlg.material)
+
+    def apply_material(self, mat) -> list[str]:
+        """Übernimmt Kennwerte; gibt die Liste der nicht vorhandenen Eigenschaften zurück."""
+        from ingrechner.core.materials import PROPERTIES
+
+        values, missing = {}, []
+        for key, prop in self.calc.material_map.items():
+            v = getattr(mat, prop)
+            if v is None:
+                missing.append(PROPERTIES[prop][0])
+            else:
+                values[key] = v
+        self.set_values(self.valid_values() | values)
+        # Werkstoff in der Notiz vermerken (erscheint im PDF-Bericht)
+        line = f"Werkstoff: {mat.display}" + (f", {mat.norm}" if mat.norm else "")
+        lines = [ln for ln in self.notiz.toPlainText().splitlines() if not ln.startswith("Werkstoff:")]
+        self.notiz.setPlainText("\n".join([line, *lines]).strip())
+        win = self.window()
+        if hasattr(win, "statusBar"):
+            msg = f"Werkstoff {mat.name} übernommen"
+            if missing:
+                msg += f" – nicht hinterlegt: {', '.join(missing)}"
+            win.statusBar().showMessage(msg, 6000)
+        self.changed.emit()
+        return missing
 
     # ------------------------------------------------------------ Werte
     def set_values(self, values: dict[str, Any]) -> None:

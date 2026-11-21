@@ -56,7 +56,20 @@ def selftest() -> int:
         png = plot_png(calc, calc.defaults(), res)
         ok &= res.ok
         lines.append(f"{'OK ' if res.ok else 'ERR'} {cls.id}: {len(res.values)} Werte, Plot={bool(png)}")
-    lines.append(f"{len(classes)} Rechner – {'bestanden' if ok else 'FEHLER'}")
+    # Phase 2: Werkzeuge
+    from ingrechner.core.expr import Evaluator
+    from ingrechner.core.materials import MaterialLibrary
+    from ingrechner.core.unitconv import convert
+
+    checks = {
+        "Formel-Auswerter": abs(Evaluator("deg").evaluate("sqrt(3^2+4^2) + sin(30)")[1] - 5.5) < 1e-12,
+        "Einheiten": abs(convert(1, "bar", "psi") - 14.503773773) < 1e-6,
+        "Materialdatenbank": len(MaterialLibrary(None).builtin) >= 20,
+    }
+    for name, passed in checks.items():
+        ok &= passed
+        lines.append(f"{'OK ' if passed else 'ERR'} {name}")
+    lines.append(f"{len(classes)} Rechner, {len(checks)} Werkzeug-Prüfungen – {'bestanden' if ok else 'FEHLER'}")
     text = "\n".join(lines)
     try:
         print(text)

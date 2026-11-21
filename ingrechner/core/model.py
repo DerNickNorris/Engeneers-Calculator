@@ -123,6 +123,9 @@ class Calculator:
     norm: str = ""              # Normbezug / Quelle
     keywords: tuple[str, ...] = ()
     fields: list[Field] = []
+    # Feldschlüssel -> Materialeigenschaft (siehe core.materials.PROPERTIES); aktiviert
+    # die Schaltfläche „Werkstoff aus Datenbank“ in der Oberfläche.
+    material_map: dict[str, str] = {}
     disclaimer: str = (
         "Vereinfachtes Rechenverfahren. Ergebnisse sind vor Verwendung in "
         "Nachweisen von fachkundiger Stelle gegen die Originalnorm zu prüfen."

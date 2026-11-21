@@ -25,6 +25,7 @@ class Querschnittswerte(Calculator):
     norm = "Elementare Querschnittsgeometrie, scharfkantig ohne Ausrundungsradien"
     keywords = ("querschnitt", "trägheitsmoment", "widerstandsmoment", "profil", "rohr",
                 "fläche", "flächenmoment")
+    material_map = {"rho": "rho"}
 
     fields = [
         ChoiceField("form", "Querschnittsform", [
