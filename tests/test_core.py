@@ -20,7 +20,7 @@ def test_registry_findet_alle_beispielrechner():
     assert {"mb.biegung_einfeldtraeger", "st.querschnittswerte", "et.spannungsfall",
             "fl.druckverlust_rohr"} <= ids
     cats = list(dict.fromkeys(c.category for c in ALL))   # Reihenfolge des ersten Auftretens
-    assert cats == ["Maschinenbau", "Bau / Statik", "Elektrotechnik", "Fluid / Thermo", "Heizung / Wärme",
+    assert cats == ["Maschinenbau", "Bau / Statik", "Elektrotechnik", "Fluid / Thermo", "Heizung / Wärme", "Lüftung / RLT",
                     "Pumpen", "Abwasser / Klärwerk"]
 
 
