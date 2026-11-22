@@ -171,7 +171,7 @@ class MaterialsView(QWidget):
         split.addWidget(tcard)
         dcard = Card("Kennwerte")
         self.detail = QTextBrowser()
-        self.detail.setMinimumWidth(300)
+        self.detail.setMinimumWidth(380)
         dcard.body.addWidget(self.detail)
         split.addWidget(dcard)
         split.setSizes([700, 360])
@@ -242,10 +242,10 @@ class MaterialsView(QWidget):
                     getattr(self, name).setEnabled(False)
             return
         rows = "".join(
-            f"<tr><td style='padding:3px 10px 3px 0; white-space:nowrap'>{label}</td>"
-            f"<td style='padding:3px 8px; color:{C['muted']}'><i>{rich(sym)}</i></td>"
-            f"<td align='right' style='padding:3px 0'><b>{_fmt(m, key)}</b></td>"
-            f"<td style='padding:3px 0 3px 6px; color:{C['muted']}'>{unit}</td></tr>"
+            f"<tr><td style='padding:3px 10px 3px 0'>{label}</td>"
+            f"<td style='padding:3px 8px; color:{C['muted']}; white-space:nowrap'><i>{rich(sym)}</i></td>"
+            f"<td align='right' style='padding:3px 0; white-space:nowrap'><b>{_fmt(m, key)}</b></td>"
+            f"<td style='padding:3px 0 3px 6px; color:{C['muted']}; white-space:nowrap'>{unit}</td></tr>"
             for key, (label, sym, unit, _) in PROPERTIES.items())
         src = "Mitgeliefert (schreibgeschützt)" if m.builtin else "Eigener Werkstoff (Team-Datei)"
         self.detail.setHtml(

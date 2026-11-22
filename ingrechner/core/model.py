@@ -126,6 +126,9 @@ class Calculator:
     # Feldschlüssel -> Materialeigenschaft (siehe core.materials.PROPERTIES); aktiviert
     # die Schaltfläche „Werkstoff aus Datenbank“ in der Oberfläche.
     material_map: dict[str, str] = {}
+    # Optional (Auswahlfeld, Wert): wird beim Übernehmen eines Werkstoffs gesetzt, z. B. ("werkstoff", "frei"),
+    # damit der übernommene Wert statt einer Voreinstellung verwendet wird.
+    material_select: tuple[str, str] | None = None
     disclaimer: str = (
         "Vereinfachtes Rechenverfahren. Ergebnisse sind vor Verwendung in "
         "Nachweisen von fachkundiger Stelle gegen die Originalnorm zu prüfen."

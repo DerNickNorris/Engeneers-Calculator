@@ -268,6 +268,9 @@ class CalculatorView(QWidget):
                 missing.append(PROPERTIES[prop][0])
             else:
                 values[key] = v
+        if self.calc.material_select and values:
+            key, val = self.calc.material_select
+            values[key] = val
         self.set_values(self.valid_values() | values)
         # Werkstoff in der Notiz vermerken (erscheint im PDF-Bericht)
         line = f"Werkstoff: {mat.display}" + (f", {mat.norm}" if mat.norm else "")

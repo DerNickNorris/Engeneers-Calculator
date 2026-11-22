@@ -21,7 +21,7 @@ def pretty_unit(unit: str) -> str:
     for exp, sup in sorted(_SUPERSCRIPT.items(), key=lambda kv: -len(kv[0])):
         text = text.replace(f"**{exp}", sup)
     text = text.replace(" * ", "·").replace("*", "·")
-    text = text.replace("milliohm", "mΩ").replace("ohm", "Ω").replace("degC", "°C").replace("percent", "%").replace("degree", "°").replace("microfarad", "µF").replace("hour", "h").replace("liter", "l")
+    text = text.replace("milliohm", "mΩ").replace("ohm", "Ω").replace("degC", "°C").replace("percent", "%").replace("degree", "°").replace("microfarad", "µF").replace("hour", "h").replace("liter", "l").replace("minute", "min")
     return text
 
 
@@ -33,7 +33,7 @@ def unit_html(unit: str) -> str:
     for exp in ("-2", "-1", "4", "3", "2"):
         text = text.replace(f"**{exp}", f"<super>{exp.replace('-', '−')}</super>")
     text = text.replace(" * ", "·").replace("*", "·")
-    text = text.replace("milliohm", "mΩ").replace("ohm", "Ω").replace("degC", "°C").replace("percent", "%").replace("degree", "°").replace("microfarad", "µF").replace("hour", "h").replace("liter", "l")
+    text = text.replace("milliohm", "mΩ").replace("ohm", "Ω").replace("degC", "°C").replace("percent", "%").replace("degree", "°").replace("microfarad", "µF").replace("hour", "h").replace("liter", "l").replace("minute", "min")
     return text
 
 
