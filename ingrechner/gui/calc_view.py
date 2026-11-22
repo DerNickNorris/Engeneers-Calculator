@@ -82,6 +82,7 @@ class CalculatorView(QWidget):
         self.form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.form.setHorizontalSpacing(10)
         self.form.setVerticalSpacing(6)
+        self.form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
         for f in self.calc.fields:
             self._add_field(f)
         in_card.body.addLayout(self.form)
@@ -177,8 +178,15 @@ class CalculatorView(QWidget):
     def _add_field(self, f) -> None:
         label = QLabel(f"{f.label}")
         label.setToolTip(f.tooltip)
+        if len(f.label) > 24:              # lange Bezeichnungen umbrechen statt Felder abzuschneiden
+            label.setWordWrap(True)
+            label.setMinimumWidth(150)
+            label.setMaximumWidth(190)
+        label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         if isinstance(f, ChoiceField):
             editor = QComboBox()
+            editor.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
+            editor.setMinimumContentsLength(14)
             for value, text in f.options:
                 editor.addItem(text, value)
             editor.currentIndexChanged.connect(self._on_choice)
