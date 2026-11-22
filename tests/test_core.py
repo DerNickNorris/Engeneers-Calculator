@@ -21,7 +21,7 @@ def test_registry_findet_alle_beispielrechner():
             "fl.druckverlust_rohr"} <= ids
     cats = list(dict.fromkeys(c.category for c in ALL))   # Reihenfolge des ersten Auftretens
     assert cats == ["Maschinenbau", "Bau / Statik", "Elektrotechnik", "Fluid / Thermo", "Heizung / Wärme",
-                    "Pumpen"]
+                    "Pumpen", "Abwasser / Klärwerk"]
 
 
 @pytest.mark.parametrize("cls", ALL, ids=lambda c: c.id)

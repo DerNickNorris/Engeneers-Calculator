@@ -20,11 +20,11 @@ DB = {"medium": medien.ids("fluessig")}
 WASSER = DB   # Kompatibilität
 
 
-def medium_felder(theta: float = 60.0, mit_pv: bool = False) -> list:
+def medium_felder(theta: float = 60.0, mit_pv: bool = False, default: str = "wasser") -> list:
     felder = [
         ChoiceField("medium", "Fördermedium", [*medien.auswahl("fluessig"),
                                                ("benutzer", "Benutzerdefiniert (eigene Stoffwerte)")],
-                    "wasser", tooltip="Stoffwerte aus der Mediendatenbank (Extras › Mediendatenbank) – "
+                    default, tooltip="Stoffwerte aus der Mediendatenbank (Extras › Mediendatenbank) – "
                                       "Richtwerte für überschlägige Berechnungen."),
         NumberField("theta", "Medientemperatur", "θ", "degC", theta, min=-50, max=200, min_inclusive=True,
                     decimals=1, visible_if=DB),

@@ -274,8 +274,9 @@ def loesen_fuer_quelle(project: Project, quelle: str) -> list[tuple[str, str]]:
 class Kette:
     titel: str
     beschreibung: str
-    # (Rechner-ID, Bezeichnung, {Zielfeld: (Index der Quelle in der Kette, Art, Schlüssel)})
-    glieder: list[tuple[str, str, dict[str, tuple[int, str, str]]]]
+    # (Rechner-ID, Bezeichnung, {Zielfeld: (Index der Quelle in der Kette, Art, Schlüssel)}
+    #  [, Starteingaben [, Notiz]])
+    glieder: list[tuple]
 
 
 KETTEN = [
@@ -309,14 +310,35 @@ KETTEN = [
                   "medium": (0, EINGABE, "medium"), "theta": (0, EINGABE, "theta"), "V": (1, ERGEBNIS, "Qb"),
                   "rho": (0, EINGABE, "rho"), "nu": (0, EINGABE, "nu")}),
           ]),
+    Kette("Abwasserpumpwerk",
+          "Druckleitung → Kennlinie & Betriebspunkt → Pumpensumpf → Druckstoß → NPSH", [
+              ("aw.druckleitung", "Pumpwerk – Druckleitung", {}),
+              ("pu.betriebspunkt", "Pumpwerk – Betriebspunkt", {
+                  "Va": (0, ERGEBNIS, "V"), "Ha": (0, ERGEBNIS, "H"), "Hs": (0, ERGEBNIS, "Hstat"),
+                  "rho": (0, ERGEBNIS, "rho")},
+               {"kennlinie": [[0, 34, 0], [20, 33, 30], [40, 31, 50], [60, 28, 62], [80, 24, 64], [100, 19, 58]],
+                "nN": 1450},
+               "BEISPIELKENNLINIE einer Abwasserpumpe – durch die Datenblattwerte der gewählten Pumpe ersetzen."),
+              ("aw.pumpensumpf", "Pumpwerk – Pumpensumpf", {"QP": (1, ERGEBNIS, "Qb")}),
+              ("aw.druckstoss", "Pumpwerk – Druckstoß", {
+                  "v0": (0, ERGEBNIS, "v"), "L": (0, EINGABE, "L"), "da": (0, ERGEBNIS, "da"),
+                  "s": (0, ERGEBNIS, "s"), "rho": (0, ERGEBNIS, "rho"), "p0": (0, ERGEBNIS, "p")}),
+              ("pu.npsh", "Pumpwerk – NPSH", {
+                  "medium": (0, EINGABE, "medium"), "theta": (0, EINGABE, "theta"), "V": (1, ERGEBNIS, "Qb"),
+                  "rho": (0, EINGABE, "rho"), "nu": (0, EINGABE, "nu")},
+               {"hz": 1.0, "rohr": "st:DN 150", "L": 3, "zeta": 1.5},
+               "Trocken aufgestellte Pumpe mit Zulauf aus dem Sumpf; bei Tauchmotorpumpen Mindestüberdeckung "
+               "nach Herstellerangabe statt NPSH-Nachweis."),
+          ]),
 ]
 
 
 def kette_anlegen(project: Project, kette: Kette, after: str | None = None) -> list[str]:
     """Legt die Positionen einer Kette mit allen Verknüpfungen an; liefert die neuen Positions-IDs."""
     pids: list[str] = []
-    for calc_id, titel, links in kette.glieder:
-        pos = project.add_position(calc_id, titel=titel, after=pids[-1] if pids else after)
+    for calc_id, titel, links, *extra in kette.glieder:
+        inputs, notiz = (list(extra) + [{}, ""])[:2]
+        pos = project.add_position(calc_id, dict(inputs), notiz, titel=titel, after=pids[-1] if pids else after)
         pos.links = {k: {"pos": pids[i], "art": art, "key": key} for k, (i, art, key) in links.items()}
         pids.append(pos.id)
     return pids

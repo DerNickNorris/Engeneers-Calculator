@@ -13,7 +13,7 @@ import pkgutil
 from .model import Calculator
 
 CATEGORY_ORDER = ["Maschinenbau", "Bau / Statik", "Elektrotechnik", "Fluid / Thermo", "Heizung / Wärme",
-                  "Pumpen"]
+                  "Pumpen", "Abwasser / Klärwerk"]
 
 
 def discover() -> list[type[Calculator]]:
