@@ -39,7 +39,7 @@ jobs:
           }
 
       - name: Tests
-        run: python -m pytest -q
+        run: python -X faulthandler -m pytest -q -p no:cacheprovider
 
       - name: EXE bauen
         run: pyinstaller ingrechner.spec --noconfirm
