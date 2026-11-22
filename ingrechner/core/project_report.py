@@ -19,8 +19,8 @@ from .. import APP_NAME, __version__
 from .model import Calculator, CalcResult, Level
 from .project import Position, Project
 from .links import beschreibung
-from .report import (BLUE, BLUE_LIGHT, GREY, GRID, WARN, _register_fonts, _styles, calc_body,
-                     plot_png)
+from .report import (GREY, GRID, WARN, _register_fonts, _styles, calc_body,
+                     plot_png, akzent, akzent_hell, briefkopf_zeichnen, fusszeile_text, rand_oben, seitenrahmen)
 from .textfmt import rich
 from .units import fmt_num, unit_html
 
@@ -102,12 +102,11 @@ class _NumberedCanvas(rl_canvas.Canvas):
         for state in self._saved:
             self.__dict__.update(state)
             if self._pageNumber > 1 or not getattr(self, "_has_cover", False):
-                self.setFont("DejaVu", 7.5)
-                self.setFillColor(GREY)
-                self.setStrokeColor(GRID)
-                self.line(18 * mm, 14 * mm, A4[0] - 18 * mm, 14 * mm)
-                self.drawString(18 * mm, 10 * mm, self.footer_left)
-                self.drawRightString(A4[0] - 18 * mm, 10 * mm, f"Seite {self._pageNumber} von {total}")
+                seitenrahmen(self, self.footer_left, f"Seite {self._pageNumber} von {total}")
+            else:
+                self.saveState()
+                briefkopf_zeichnen(self, gross=True)
+                self.restoreState()
             super().showPage()
         super().save()
 
@@ -169,7 +168,7 @@ def _overview(results: list[PositionResult], st, page_w) -> list:
     vals_style = ParagraphStyle("vals", parent=st["cell"], leading=14)   # Platz für Tief-/Hochstellungen
     head = ["Pos.", "Bezeichnung / Rechner", "Maßgebende Ergebnisse", "Status"]
     rows = [[Paragraph(f"<b>{h}</b>", st["cell"]) for h in head]]
-    style = [("BACKGROUND", (0, 0), (-1, 0), BLUE_LIGHT), ("LINEBELOW", (0, 0), (-1, 0), 0.8, BLUE),
+    style = [("BACKGROUND", (0, 0), (-1, 0), akzent_hell()), ("LINEBELOW", (0, 0), (-1, 0), 0.8, akzent()),
              ("LINEBELOW", (0, 1), (-1, -1), 0.4, GRID), ("VALIGN", (0, 0), (-1, -1), "TOP")]
     for pr in results:
         p = pr.position
@@ -216,7 +215,7 @@ def build_project_report(path: str | Path, project: Project, calcs: dict[str, ty
         toc = TableOfContents()
         toc.levelStyles = [
             ParagraphStyle("t0", fontName="DejaVu-Bold", fontSize=9.5, leading=14, leftIndent=0,
-                           textColor=BLUE),
+                           textColor=akzent()),
             ParagraphStyle("t1", fontName="DejaVu", fontSize=9, leading=13, leftIndent=8 * mm),
         ]
         toc.dotsMinLevel = 0
@@ -253,13 +252,14 @@ def build_project_report(path: str | Path, project: Project, calcs: dict[str, ty
         if i < len(results):
             story.append(PageBreak())
 
-    footer = " · ".join(x for x in (project.meta.projekt, project.meta.nummer, opts.titel) if x)
+    footer = fusszeile_text(" · ".join(x for x in (project.meta.projekt, project.meta.nummer, opts.titel) if x),
+                            datetime.now().strftime("%d.%m.%Y %H:%M"))
 
     class Canvas(_NumberedCanvas):
         footer_left = footer
         _has_cover = opts.deckblatt
 
-    doc = _Doc(str(path), pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm, topMargin=16 * mm,
+    doc = _Doc(str(path), pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm, topMargin=rand_oben(),
                bottomMargin=20 * mm, title=f"{opts.titel} – {project.name}", author=project.meta.bearbeiter or APP_NAME,
                subject=project.meta.projekt)
     if not opts.deckblatt:

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QThread, Signal
-from PySide6.QtWidgets import (QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout, QLabel, QLineEdit,
+from PySide6.QtWidgets import (QDialog, QMessageBox, QDialogButtonBox, QFormLayout, QHBoxLayout, QLabel, QLineEdit,
                                QPlainTextEdit, QVBoxLayout)
 
 from ingrechner import APP_NAME, __version__
@@ -71,7 +71,7 @@ class _DownloadJob(QThread):
 
 
 class SettingsDialog(QDialog):
-    """Einstellungen: Allgemein, Team-Dateien, Diktat (Spracherkennung)."""
+    """Einstellungen: Allgemein, Team-Dateien, Firmenvorlage, Diktat (Spracherkennung)."""
 
     def __init__(self, context, parent=None, tab: str | None = None) -> None:
         from PySide6.QtWidgets import QComboBox, QProgressBar, QPushButton, QTabWidget, QWidget
@@ -121,6 +121,12 @@ class SettingsDialog(QDialog):
         tl.addWidget(hint)
         tl.addStretch(1)
         self.tabs.addTab(team, "Team-Dateien")
+
+        # ------------------------------------------------ Firmenvorlage
+        from .firmenvorlage_tab import FirmenvorlageTab
+
+        self.vorlage = FirmenvorlageTab(context, self._path_row)
+        self.tabs.addTab(self.vorlage, "Firmenvorlage")
 
         # ------------------------------------------------------- Diktat
         dic = QWidget()
@@ -189,7 +195,7 @@ class SettingsDialog(QDialog):
         self.buttons = bb
         lay.addWidget(bb)
         if tab:
-            names = {"allgemein": 0, "team": 1, "diktat": 2}
+            names = {"allgemein": 0, "team": 1, "vorlage": 2, "diktat": 3}
             self.tabs.setCurrentIndex(names.get(tab, 0))
 
     def _path_row(self, form, label, value, default_fn, flt):
@@ -262,6 +268,11 @@ class SettingsDialog(QDialog):
             self.ctx.template_path = tp
         self.ctx.speech_model_path = self.model_path.text().strip() or None
         self.ctx.speech_glossary = self.glossary.toPlainText().strip()
+        fehler = self.vorlage.speichern()
+        if fehler:
+            QMessageBox.warning(self, "Firmenvorlage", fehler)
+            self.tabs.setCurrentWidget(self.vorlage)
+            return
         self.accept()
 
     def reject(self) -> None:

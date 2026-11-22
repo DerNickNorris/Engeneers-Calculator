@@ -507,3 +507,42 @@ def test_verknuepfung_in_der_oberflaeche(window, monkeypatch):
     for v in window.views.values():
         if hasattr(v, "dirty"):
             v.dirty = False
+
+
+def test_firmenvorlage_einstellungen(window, tmp_path, monkeypatch):
+    import io as _io
+
+    from PIL import Image
+
+    from ingrechner.core import briefkopf
+    from ingrechner.gui.dialogs import SettingsDialog
+
+    b = _io.BytesIO()
+    Image.new("RGB", (200, 80), (30, 90, 160)).save(b, "PNG")
+    dlg = SettingsDialog(window.ctx, window, tab="vorlage")
+    assert dlg.tabs.currentWidget() is dlg.vorlage
+    t = dlg.vorlage
+    ziel = tmp_path / "team" / "firmenvorlage.json"
+    t.path.setText(str(ziel))
+    t.firma.setText("Muster Ingenieure GmbH")
+    t.zusatz.setPlainText("Abteilung TGA\nMusterstraße 1")
+    t._set_logo(b.getvalue())
+    t._set_farbe("#2e7d4f")
+    t.fuss.setText("Vertraulich")
+    pdf = t.vorschau(oeffnen=False)
+    assert pdf.exists() and briefkopf.aktuell().firma == ""      # Vorschau ändert die aktive Vorlage nicht
+    dlg._save()
+    try:
+        assert ziel.exists()
+        v = briefkopf.aktuell()
+        assert v.firma == "Muster Ingenieure GmbH" and v.farbe == "#2e7d4f" and v.logo == b.getvalue()
+        assert window.ctx.vorlage_path == ziel
+        # Neu laden aus der Datei (z. B. Teamvorlage)
+        briefkopf.setzen(None)
+        assert window.ctx.lade_firmenvorlage() is None and briefkopf.aktuell().firma == "Muster Ingenieure GmbH"
+        dlg2 = SettingsDialog(window.ctx, window, tab="vorlage")
+        assert dlg2.vorlage.firma.text() == "Muster Ingenieure GmbH"
+        dlg2.reject()
+    finally:
+        briefkopf.setzen(None)
+        window.ctx.settings.remove("report/vorlage")

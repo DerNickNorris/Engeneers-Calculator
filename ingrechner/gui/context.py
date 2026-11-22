@@ -22,6 +22,10 @@ def default_template_path() -> Path:
     return app_data_dir() / "protokoll-vorlagen.json"
 
 
+def default_vorlage_path() -> Path:
+    return app_data_dir() / "firmenvorlage.json"
+
+
 def default_model_base() -> Path:
     return app_data_dir() / "sprachmodelle"
 
@@ -32,6 +36,27 @@ class AppContext:
         self._materials: MaterialLibrary | None = None
         self._templates: TemplateLibrary | None = None
         self._speech = None
+
+    # ---------------------------------------------------- Firmenvorlage
+    @property
+    def vorlage_path(self) -> Path:
+        value = self.settings.value("report/vorlage", "")
+        return Path(value) if value else default_vorlage_path()
+
+    @vorlage_path.setter
+    def vorlage_path(self, path: str | Path) -> None:
+        self.settings.setValue("report/vorlage", str(path))
+
+    def lade_firmenvorlage(self) -> str | None:
+        """Lädt die Firmenvorlage für alle PDF-Berichte; liefert eine Fehlermeldung oder None."""
+        from ingrechner.core import briefkopf
+
+        try:
+            briefkopf.setzen(briefkopf.Firmenvorlage.load(self.vorlage_path))
+        except (OSError, ValueError) as exc:
+            briefkopf.setzen(None)
+            return f"Firmenvorlage konnte nicht geladen werden: {exc}"
+        return None
 
     # ----------------------------------------------------- Materialdatei
     @property

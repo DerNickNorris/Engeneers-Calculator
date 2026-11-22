@@ -49,6 +49,9 @@ class MainWindow(QMainWindow):
         self._build_ui()
         self._build_actions()
         self._update_title()
+        fehler = self.ctx.lade_firmenvorlage()
+        if fehler:
+            self.statusBar().showMessage(fehler, 10000)
         geo = self.settings.value("geometry")
         if geo is not None:
             self.restoreGeometry(geo)
@@ -234,6 +237,7 @@ class MainWindow(QMainWindow):
         x.addAction(self.a_recalc)
         x.addAction(act("Mediendatenbank", lambda: self.open_tool("tool.medien")))
         x.addSeparator()
+        x.addAction(act("Firmenvorlage für Berichte …", lambda: self.edit_settings("vorlage")))
         x.addAction(act("Einstellungen …", self.edit_settings, QKeySequence.Preferences))
         h = self.menuBar().addMenu("&Hilfe")
         h.addAction(act("Nach Updates suchen …", self.check_updates_now))
