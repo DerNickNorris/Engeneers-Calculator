@@ -8,7 +8,7 @@ Systemskizze, Diagramm, PDF-Rechnungsnachweis und Excel/CSV-Export.
 > sind vor Verwendung in Nachweisen von fachkundiger Stelle gegen die jeweilige
 > Originalnorm zu prüfen.
 
-## Stand: Version 0.9.0
+## Stand: Version 0.9.2
 
 **Rechner (Phase 1 und 4)**
 
@@ -191,6 +191,9 @@ unter *Actions › Lauf › Artifacts*: `Ingenieurs-Rechner-Setup` und die porta
 3. Der Workflow baut alles und hängt Setup und portable ZIP-Datei an das Release an (etwa
    5 Minuten). Wurde das Release vorher auf GitHub angelegt, werden die Dateien ergänzt.
    Der Tag muss zur Programmversion passen, sonst bricht der Build ab.
+4. **Schlägt ein Release-Build fehl, bleiben Tag und Release bestehen** – die Versionshistorie wird
+   nicht verändert (nichts löschen oder neu taggen). Stattdessen Fehler beheben, die Version um eine
+   Patch-Stufe erhöhen (z. B. 0.9.1 → 0.9.2) und als neues Release veröffentlichen.
 
 **Lokal unter Windows:** `build.bat` doppelklicken. Ergebnis
 `dist\Ingenieurs-Rechner\Ingenieurs-Rechner.exe`; ist [Inno Setup 6](https://jrsoftware.org/isdl.php)
