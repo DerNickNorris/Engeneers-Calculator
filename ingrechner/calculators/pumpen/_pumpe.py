@@ -9,27 +9,28 @@ import numpy as np
 
 from ingrechner.calculators.fluid.druckverlust_rohr import rohrreibungszahl
 from ingrechner.core.model import ChoiceField, Column, NumberField, TableField
-from ingrechner.core.stoffwerte import dampfdruck, stoffwerte
+from ingrechner.core import medien
 from ingrechner.core.svg import INK, Svg
 
 G = 9.80665
 
 # ---------------------------------------------------------------- Medium
-WASSER = {"medium": ["wasser"]}
 BENUTZER = {"medium": ["benutzer"]}
+DB = {"medium": medien.ids("fluessig")}
+WASSER = DB   # Kompatibilität
 
 
 def medium_felder(theta: float = 60.0, mit_pv: bool = False) -> list:
     felder = [
-        ChoiceField("medium", "Fördermedium", [("wasser", "Wasser (Stoffwerte nach Temperatur)"),
-                                               ("benutzer", "Benutzerdefiniert (Abwasser, Sole, Öl …)")],
-                    "wasser", tooltip="Für Wasser-Glykol-Gemische, Abwasser oder Prozessmedien eigene Stoffwerte "
-                                      "angeben (Datenblatt des Mediums)."),
-        NumberField("theta", "Medientemperatur", "θ", "degC", theta, min=0, max=150, min_inclusive=True,
-                    decimals=1, visible_if=WASSER),
+        ChoiceField("medium", "Fördermedium", [*medien.auswahl("fluessig"),
+                                               ("benutzer", "Benutzerdefiniert (eigene Stoffwerte)")],
+                    "wasser", tooltip="Stoffwerte aus der Mediendatenbank (Extras › Mediendatenbank) – "
+                                      "Richtwerte für überschlägige Berechnungen."),
+        NumberField("theta", "Medientemperatur", "θ", "degC", theta, min=-50, max=200, min_inclusive=True,
+                    decimals=1, visible_if=DB),
         NumberField("rho", "Dichte", "ρ", "kg/m**3", 1000, min=0, decimals=1, visible_if=BENUTZER),
         NumberField("nu", "Kinematische Viskosität", "ν", "mm**2/s", 1.3, min=0, decimals=3, visible_if=BENUTZER,
-                    tooltip="Wasser 20 °C ≈ 1,0; Ethylenglykol 30 % bei 0 °C ≈ 4; kommunales Abwasser ≈ 1,0–1,5"),
+                    tooltip="Wasser 20 °C ≈ 1,0; Ethylenglykol 30 % bei 0 °C ≈ 3,5; kommunales Abwasser ≈ 1,1"),
     ]
     if mit_pv:
         felder.append(NumberField("pv", "Dampfdruck des Mediums", "p_v", "kPa", 2.34, min=0, min_inclusive=True,
@@ -44,15 +45,27 @@ class Medium:
     rho: float      # kg/m³
     nu: float       # m²/s
     pv: float       # Pa (absolut)
+    cp: float = 4.186           # kJ/(kg·K)
+    newtonsch: bool = True
+    hinweis: str = ""
+    id: str = "benutzer"
 
 
 def medium(inp) -> Medium:
-    if inp["medium"] == "wasser":
-        t = inp["theta"].to("degC").magnitude
-        sw = stoffwerte("wasser", t)
-        return Medium(f"Wasser {t:g} °C".replace(".", ","), sw.rho, sw.nu * 1e-6, dampfdruck(t) * 1000)
-    pv = inp["pv"].to("Pa").magnitude if "pv" in inp else 0.0
-    return Medium("benutzerdefiniert", inp["rho"].to("kg/m**3").magnitude, inp["nu"].to("m**2/s").magnitude, pv)
+    if inp["medium"] == "benutzer":
+        pv = inp["pv"].to("Pa").magnitude if "pv" in inp else 0.0
+        return Medium("benutzerdefiniert", inp["rho"].to("kg/m**3").magnitude, inp["nu"].to("m**2/s").magnitude, pv)
+    m = medien.medium(inp["medium"])
+    t = inp["theta"].to("degC").magnitude
+    z = m.zustand(t)
+    return Medium(f"{m.name}, {t:g} °C".replace(".", ","), z.rho, z.nu, z.pv, z.cp, m.newtonsch, m.hinweis, m.id)
+
+
+def medium_hinweise(calc, med: Medium) -> None:
+    if not med.newtonsch:
+        calc.warn("Nicht-newtonsches Medium: Berechnung mit äquivalenter Viskosität – nur überschlägig. "
+                  + med.hinweis)
+    viskositaet_pruefen(calc, med.nu)
 
 
 def viskositaet_pruefen(calc, nu: float) -> None:

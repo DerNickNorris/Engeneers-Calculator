@@ -77,6 +77,19 @@ PE-Schaum); eigene Werkstoffe über „Werkstoff …“.
 Neuer Feldtyp **Tabelle** (`TableField`) im Rechner-Grundgerüst – wird in Eingabemaske, Projektdatei,
 PDF-Bericht und Excel-/CSV-Export automatisch unterstützt.
 
+**Mediendatenbank (Version 0.10)** – *Extras › Mediendatenbank* und Auswahl „Medium“ in den Rechnern
+Druckverlust Rohrleitung, Pumpen (Flüssigkeiten), Wärmemenge und Wärmetauscher. Richtwerte für
+überschlägige Berechnungen:
+
+| Gruppe | Medien | Modell |
+|--------|--------|--------|
+| Wasser / Abwasser | Wasser, Abwasser kommunal (Zulauf), Klärwasser (Ablauf), Klärschlamm TS 2/4/5/6 % | VDI-Wärmeatlas; Schlamm als äquivalente Viskosität (nicht-newtonsch, Warnhinweis) |
+| Wärmeträger / Sole | Ethylenglykol 30/40 %, Propylenglykol 30/40 % | Stützstellentabellen |
+| Öle / Brennstoffe | Heizöl EL / Diesel, Schmieröle ISO VG 32–460, Hydrauliköl HLP 46 | Ubbelohde-Walther (DIN 51563) |
+| Lebensmittel | Speiseöl, Speisefett geschmolzen (ab 45 °C) | Ubbelohde-Walther |
+| Gase | Luft, Stickstoff, CO₂, Erdgas H/L, Klärgas 60/65 % CH₄ | ideales Gemisch mit Realgasfaktor (Virialansatz), Sutherland-Viskosität; Druck als Eingabe |
+| Schmierfette | NLGI 000–2 | nur Kennwerte, keine Strömungsrechnung |
+
 **Werkzeuge (Phase 2)**
 
 | Werkzeug                     | Kurzbeschreibung |

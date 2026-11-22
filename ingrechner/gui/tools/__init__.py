@@ -22,6 +22,7 @@ def tools() -> list[ToolSpec]:
     from ..protocols.protocol_view import ProtocolView
     from ..protocols.template_editor import TemplateEditorView
     from .materials_view import MaterialsView
+    from .medien_view import MedienView
     from .plotter import PlotterView
     from .sci_calc import SciCalcView
     from .unit_converter import UnitConverterView
@@ -33,6 +34,9 @@ def tools() -> list[ToolSpec]:
                  ("taschenrechner", "rechner", "sin", "wurzel", "formel"), SciCalcView),
         ToolSpec("tool.materials", "Materialdatenbank", "Werkstoffkennwerte, vom Team erweiterbar",
                  ("material", "werkstoff", "stahl", "aluminium", "e-modul", "dichte", "streckgrenze"), MaterialsView),
+        ToolSpec("tool.medien", "Mediendatenbank", "Stoffwerte von Flüssigkeiten und Gasen über der Temperatur",
+                 ("medium", "medien", "fluid", "stoffwerte", "viskosität", "dichte", "glykol", "sole", "öl",
+                  "klärschlamm", "abwasser", "erdgas", "klärgas", "biogas", "co2", "stickstoff", "fett"), MedienView),
         ToolSpec("tool.plotter", "Funktionsplotter", "Funktionen und Messwerte darstellen",
                  ("plot", "diagramm", "funktion", "graph", "kennlinie", "messwerte"), PlotterView),
         ToolSpec("proto.editor", "Besprechungsprotokoll", "Protokolle nach Vorlage erstellen, mit Diktat",

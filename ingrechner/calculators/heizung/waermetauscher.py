@@ -7,7 +7,8 @@ import math
 import numpy as np
 
 from ingrechner.core.model import Calculator, ChoiceField, NumberField
-from ingrechner.core.stoffwerte import MEDIEN_AUSWAHL, stoffwerte
+from ingrechner.core.medien import waerme_auswahl
+from ingrechner.core.medien import waermestoff as stoffwerte
 from ingrechner.core.svg import INK, MUTED, Svg
 from ingrechner.core.units import Q_, fmt_num, fmt_q
 
@@ -47,14 +48,14 @@ class Waermetauscher(Calculator):
         ChoiceField("vorgabe", "Leistung aus", [("leistung", "Vorgabe Wärmeleistung"),
                                                 ("primaer", "Volumenstrom der Primärseite")], "leistung"),
         NumberField("Q", "Wärmeleistung", "Q̇", "kW", 50, min=0, decimals=2, visible_if={"vorgabe": ["leistung"]}),
-        ChoiceField("med1", "Primärseite (warm): Medium", MEDIEN_AUSWAHL, "wasser"),
+        ChoiceField("med1", "Primärseite (warm): Medium", waerme_auswahl(), "wasser"),
         NumberField("t1e", "Primär Eintritt", "θ_1,ein", "degC", 80, min=-20, max=200, min_inclusive=True,
                     decimals=1),
         NumberField("t1a", "Primär Austritt", "θ_1,aus", "degC", 60, min=-20, max=200, min_inclusive=True,
                     decimals=1),
         NumberField("V1", "Primär Volumenstrom", "V̇₁", "m**3/hour", 2.2, min=0, decimals=3,
                     visible_if={"vorgabe": ["primaer"]}),
-        ChoiceField("med2", "Sekundärseite (kalt): Medium", MEDIEN_AUSWAHL, "wasser"),
+        ChoiceField("med2", "Sekundärseite (kalt): Medium", waerme_auswahl(), "wasser"),
         NumberField("t2e", "Sekundär Eintritt", "θ_2,ein", "degC", 40, min=-20, max=200, min_inclusive=True,
                     decimals=1),
         ChoiceField("sek", "Sekundärseite vorgegeben über", [("austritt", "Austrittstemperatur"),

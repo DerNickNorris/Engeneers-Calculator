@@ -6,11 +6,10 @@ import numpy as np
 
 from ingrechner.core.model import Calculator, ChoiceField, NumberField
 from ingrechner.core.rohrdaten import rohr, rohr_optionen
-from ingrechner.core.stoffwerte import stoffwerte
 from ingrechner.core.svg import ACCENT, INK, MUTED, Svg
 from ingrechner.core.units import Q_, fmt_num
 
-from ._pumpe import G, medium, medium_felder, pumpe_svg, rauheit, rauheit_felder, rohr_dp, viskositaet_pruefen
+from ._pumpe import G, medium, medium_felder, medium_hinweise, pumpe_svg, rauheit, rauheit_felder, rohr_dp
 
 VOL = {"quelle": ["volumen"]}
 WAERME = {"quelle": ["waerme"]}
@@ -69,16 +68,15 @@ class PumpenAuslegung(Calculator):
                                         "zu große Zuschläge führen zu überdimensionierten Pumpen"),
     ]
 
-    def _volumenstrom(self, inp, rho: float) -> float:
+    def _volumenstrom(self, inp, med) -> float:
+        rho = med.rho
         if inp["quelle"] == "volumen":
             return inp["V"].to("m**3/s").magnitude
         P, dT = inp["P"].to("W").magnitude, inp["dT"].to("K").magnitude
-        if inp["medium"] == "wasser":
-            cp = stoffwerte("wasser", inp["theta"].to("degC").magnitude).cp * 1000
-        else:
-            cp = 4186.0
-            self.info("Benutzerdefiniertes Medium: c_p = 4,186 kJ/(kg·K) angenommen – bei Glykol-Gemischen "
-                      "Förderstrom besser direkt vorgeben.")
+        cp = med.cp * 1000
+        if inp["medium"] == "benutzer":
+            self.info("Benutzerdefiniertes Medium: c_p = 4,186 kJ/(kg·K) angenommen – für andere Medien die "
+                      "Mediendatenbank verwenden oder den Förderstrom direkt vorgeben.")
         V = P / (rho * cp * dT)
         self.step("Förderstrom aus der Leistung", "V̇ = Q̇ / (ρ · c_p · Δθ)",
                   f"V̇ = {fmt_num(P / 1000, 2)} kW / ({fmt_num(rho, 1)} kg/m³ · {fmt_num(cp / 1000, 3)} kJ/(kg·K) · "
@@ -89,7 +87,7 @@ class PumpenAuslegung(Calculator):
         med = medium(inp)
         rho, nu = med.rho, med.nu
         self.step("Stoffwerte", "ρ, ν", med.name, f"ρ = {fmt_num(rho, 1)} kg/m³, ν = {fmt_num(nu * 1e6, 3)} mm²/s")
-        V = self._volumenstrom(inp, rho)
+        V = self._volumenstrom(inp, med)
         di, rohr_name = _di(inp)
         k = rauheit(inp)
         L, zeta = inp["L"].to("m").magnitude, float(inp["zeta"])
@@ -138,16 +136,17 @@ class PumpenAuslegung(Calculator):
         self.result("v", "Fließgeschwindigkeit", "v", Q_(r.v, "m/s"), "m/s", 2)
         self.result("R", "Druckgefälle Rohr", "R", Q_(r.r, "Pa/m"), "Pa/m", 0)
         self.result("Phyd", "Hydraulische Leistung", "P_hyd", Q_(P_hyd, "W"), "W", 0)
+        self.result("rho", "Dichte des Mediums", "ρ", Q_(rho, "kg/m**3"), "kg/m**3", 1)
 
         # Bewertung
         if r.re < 2320:
             self.info("Laminare Strömung (Re < 2320).")
         if r.v > 3.0:
             self.warn(f"Fließgeschwindigkeit {fmt_num(r.v, 2)} m/s sehr hoch – Erosion, Druckstöße, Geräusche.")
-        elif r.v > 1.5 and inp["medium"] == "wasser":
+        elif r.v > 1.5 and med.id in ("wasser", "eg30", "eg40", "pg30", "pg40"):
             self.warn(f"v = {fmt_num(r.v, 2)} m/s – in Heizungs-/Kälteverteilungen sind ≤ 1,0–1,5 m/s üblich "
                       "(Strömungsgeräusche).")
-        if inp["medium"] == "benutzer" and r.v < 0.7:
+        if (inp["medium"] == "benutzer" or "schlamm" in med.id or med.id == "abwasser_zulauf") and r.v < 0.7:
             self.info("Bei feststoffhaltigen Medien (Abwasser-Druckleitungen) sind v ≥ 0,7–0,8 m/s üblich, "
                       "um Ablagerungen zu vermeiden.")
         if r.r > 300:
@@ -160,8 +159,8 @@ class PumpenAuslegung(Calculator):
         if H_stat < 0:
             self.warn("Negative statische Förderhöhe – das Medium fließt teilweise von selbst; Betriebspunkt "
                       "bei Teillast prüfen.")
-        viskositaet_pruefen(self, nu)
-        if inp["medium"] == "benutzer":
+        medium_hinweise(self, med)
+        if inp["medium"] == "benutzer" or "schlamm" in med.id or med.id == "abwasser_zulauf":
             self.info("Feststoffhaltige Medien (Abwasser): Laufradform und freien Kugeldurchgang beachten, "
                       "Feststoffzuschläge zur Förderhöhe nach Herstellerangabe.")
         self.info("Die Pumpe so wählen, dass der Auslegungspunkt nahe dem Bestpunkt liegt – Kennlinie im "

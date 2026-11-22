@@ -310,7 +310,7 @@ class CalculatorView(QWidget):
 
     # ------------------------------------------------------------ Werte
     def set_values(self, values: dict[str, Any]) -> None:
-        merged = self.calc.defaults() | {k: v for k, v in values.items() if k in self._editors}
+        merged = self.calc.defaults() | {k: v for k, v in self.calc.upgrade(values).items() if k in self._editors}
         for f in self.calc.fields:
             ed = self._editors[f.key]
             ed.blockSignals(True)
