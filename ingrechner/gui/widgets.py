@@ -141,8 +141,11 @@ class TableEditor(QWidget):
         self.table = QTableWidget(0, len(field.columns))
         self.table.setObjectName("FieldTable")
         self.table.setHorizontalHeaderLabels(
-            [f"{c.label} [{pretty_unit(c.unit)}]" + (" (opt.)" if c.optional else "") if c.unit
-             else c.label + (" (opt.)" if c.optional else "") for c in field.columns])
+            [(f"{c.label} [{pretty_unit(c.unit)}]" if c.unit else c.label) + ("*" if c.optional else "")
+             for c in field.columns])
+        for i, c in enumerate(field.columns):
+            if c.optional:
+                self.table.horizontalHeaderItem(i).setToolTip(f"{c.label}: optional – leer lassen erlaubt")
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table.verticalHeader().setDefaultSectionSize(24)
         self.table.setSelectionMode(QAbstractItemView.ContiguousSelection)
@@ -158,7 +161,7 @@ class TableEditor(QWidget):
             b.setCursor(Qt.PointingHandCursor)
         self.btn_add.clicked.connect(self.add_row)
         self.btn_del.clicked.connect(self.remove_row)
-        hint = QLabel("Strg+V: aus Excel einfügen")
+        hint = QLabel("* optional · Strg+V: aus Excel einfügen")
         hint.setToolTip("Tabulator-getrennte Werte aus Excel einfügen; ab Zeile 1, Spalte 1 wird die Tabelle ersetzt.")
         hint.setObjectName("Unit")
         btns.addWidget(self.btn_add)

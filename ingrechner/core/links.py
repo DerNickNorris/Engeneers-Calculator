@@ -294,6 +294,21 @@ KETTEN = [
             "medium": (0, EINGABE, "medium"), "theta": (0, EINGABE, "theta"), "V": (1, ERGEBNIS, "Qb"),
             "rho": (0, EINGABE, "rho"), "nu": (0, EINGABE, "nu")}),
     ]),
+    Kette("Rohrnetz + Pumpenkette",
+          "Rohrnetz-Strang → Kennlinie & Betriebspunkt → Leistung & Motor → Energiekosten → NPSH", [
+              ("fl.rohrnetz", "Rohrnetz – ungünstigster Strang", {}),
+              ("pu.betriebspunkt", "Pumpe – Betriebspunkt", {
+                  "Va": (0, ERGEBNIS, "V"), "Ha": (0, ERGEBNIS, "H"), "rho": (0, ERGEBNIS, "rho")}),
+              ("pu.leistung", "Pumpe – Leistung & Motor", {
+                  "V": (1, ERGEBNIS, "Qb"), "H": (1, ERGEBNIS, "Hb"), "rho": (0, ERGEBNIS, "rho"),
+                  "etaP": (1, ERGEBNIS, "eta")}),
+              ("pu.energie", "Pumpe – Energiekosten", {
+                  "VN": (1, ERGEBNIS, "Qb"), "HN": (1, ERGEBNIS, "Hb"), "H0": (1, ERGEBNIS, "H0"),
+                  "eta": (2, ERGEBNIS, "eta"), "rho": (0, ERGEBNIS, "rho")}),
+              ("pu.npsh", "Pumpe – NPSH", {
+                  "medium": (0, EINGABE, "medium"), "theta": (0, EINGABE, "theta"), "V": (1, ERGEBNIS, "Qb"),
+                  "rho": (0, EINGABE, "rho"), "nu": (0, EINGABE, "nu")}),
+          ]),
 ]
 
 

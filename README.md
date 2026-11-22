@@ -8,7 +8,7 @@ Systemskizze, Diagramm, PDF-Rechnungsnachweis und Excel/CSV-Export.
 > sind vor Verwendung in Nachweisen von fachkundiger Stelle gegen die jeweilige
 > Originalnorm zu prüfen.
 
-## Stand: Version 0.10.0
+## Stand: Version 0.11.0
 
 **Rechner (Phase 1 und 4)**
 
@@ -101,6 +101,16 @@ Positionen:
   allen Verknüpfungen, einschließlich Medium und Temperatur.
 - Im PDF-Bericht steht bei verknüpften Werten die Quelle. Projektdateien bleiben mit älteren Versionen
   lesbar (dort ohne Verknüpfungen, mit den zuletzt übernommenen Werten).
+
+**Rohrnetz – Strangberechnung (Version 0.11)** – Fluid / Thermo:
+
+- Teilstrecken als Tabelle (Q̇ oder V̇, DN bzw. d_a, Länge, Σζ, Δp Einbauten), Einfügen aus Excel.
+- Rohrreihen Stahl DN 10–300, Kupfer, PE 100 SDR 11/17 oder freier Innendurchmesser; leeres DN-Feld =
+  automatische Dimensionierung nach R_max und v_max (bei freiem d_i: erforderlicher Innendurchmesser).
+- Trassenlänge (× 2 für Vor- und Rücklauf) oder Gesamtlänge, Δp Erzeuger, Sicherheitszuschlag,
+  Medium aus der Mediendatenbank.
+- Ergebnis Förderstrom und Förderhöhe – neue Kette **„Rohrnetz + Pumpenkette“** verknüpft den Strang mit
+  Betriebspunkt, Leistung, Energiekosten und NPSH.
 
 **Werkzeuge (Phase 2)**
 
