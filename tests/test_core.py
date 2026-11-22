@@ -19,7 +19,8 @@ def test_registry_findet_alle_beispielrechner():
     ids = {c.id for c in ALL}
     assert {"mb.biegung_einfeldtraeger", "st.querschnittswerte", "et.spannungsfall",
             "fl.druckverlust_rohr"} <= ids
-    assert [c.category for c in ALL][:4] == ["Maschinenbau", "Bau / Statik", "Elektrotechnik", "Fluid / Thermo"]
+    cats = list(dict.fromkeys(c.category for c in ALL))   # Reihenfolge des ersten Auftretens
+    assert cats == ["Maschinenbau", "Bau / Statik", "Elektrotechnik", "Fluid / Thermo"]
 
 
 @pytest.mark.parametrize("cls", ALL, ids=lambda c: c.id)

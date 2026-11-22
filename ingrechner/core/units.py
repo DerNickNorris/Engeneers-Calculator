@@ -7,6 +7,7 @@ import math
 import pint
 
 ureg = pint.UnitRegistry()
+ureg.define("var = volt_ampere")      # Blindleistung (Voltampere reaktiv)
 Q_ = ureg.Quantity
 
 _SUPERSCRIPT = {"2": "²", "3": "³", "4": "⁴", "-1": "⁻¹", "-2": "⁻²"}
@@ -20,7 +21,7 @@ def pretty_unit(unit: str) -> str:
     for exp, sup in sorted(_SUPERSCRIPT.items(), key=lambda kv: -len(kv[0])):
         text = text.replace(f"**{exp}", sup)
     text = text.replace(" * ", "·").replace("*", "·")
-    text = text.replace("milliohm", "mΩ").replace("ohm", "Ω").replace("degC", "°C").replace("percent", "%")
+    text = text.replace("milliohm", "mΩ").replace("ohm", "Ω").replace("degC", "°C").replace("percent", "%").replace("degree", "°").replace("microfarad", "µF").replace("hour", "h").replace("liter", "l")
     return text
 
 
@@ -32,7 +33,7 @@ def unit_html(unit: str) -> str:
     for exp in ("-2", "-1", "4", "3", "2"):
         text = text.replace(f"**{exp}", f"<super>{exp.replace('-', '−')}</super>")
     text = text.replace(" * ", "·").replace("*", "·")
-    text = text.replace("milliohm", "mΩ").replace("ohm", "Ω").replace("degC", "°C").replace("percent", "%")
+    text = text.replace("milliohm", "mΩ").replace("ohm", "Ω").replace("degC", "°C").replace("percent", "%").replace("degree", "°").replace("microfarad", "µF").replace("hour", "h").replace("liter", "l")
     return text
 
 

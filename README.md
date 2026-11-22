@@ -8,16 +8,25 @@ Systemskizze, Diagramm, PDF-Rechnungsnachweis und Excel/CSV-Export.
 > sind vor Verwendung in Nachweisen von fachkundiger Stelle gegen die jeweilige
 > Originalnorm zu prüfen.
 
-## Stand: Phase 3 (Version 0.3.0)
+## Stand: Phase 4 (Version 0.4.0)
 
-**Rechner (Phase 1)**
+**Rechner (Phase 1 und 4)**
 
-| Fachgebiet      | Rechner                    | Grundlage                                        |
-|-----------------|----------------------------|--------------------------------------------------|
-| Maschinenbau    | Biegung Einfeldträger      | Bernoulli-Balken, Einzel- oder Streckenlast      |
-| Bau / Statik    | Querschnittswerte          | Rechteck, Rohr, Kreis, I-Profil (ohne Radien)    |
-| Elektrotechnik  | Spannungsfall Leitung      | in Anlehnung an DIN VDE 0100-520 Anhang G        |
-| Fluid / Thermo  | Druckverlust Rohrleitung   | Darcy-Weisbach, Colebrook-White                  |
+| Fachgebiet      | Rechner                                  | Grundlage                                             |
+|-----------------|------------------------------------------|-------------------------------------------------------|
+| Maschinenbau    | Biegung Einfeldträger                    | Bernoulli-Balken, Einzel- oder Streckenlast           |
+|                 | Schraube: Vorspannkraft & Anziehdrehmoment | VDI 2230 Blatt 1, Gewinde DIN 13, ISO 898-1         |
+|                 | Welle auf Torsion                        | Drehmoment, τ_t, Verdrehwinkel, Mindestdurchmesser    |
+|                 | Rohr / Behälter unter Innendruck         | Kesselformel, Wanddicke in Anlehnung an AD 2000 B1    |
+| Bau / Statik    | Querschnittswerte                        | Rechteck, Rohr, Kreis, I-Profil (ohne Radien)         |
+|                 | Biegeknicken Druckstab (Stahl)           | DIN EN 1993-1-1, 6.3.1 (Knicklinien a₀–d)             |
+|                 | Kragträger                               | Endlast + Streckenlast, Moment- und Biegelinie        |
+| Elektrotechnik  | Spannungsfall Leitung                    | in Anlehnung an DIN VDE 0100-520 Anhang G             |
+|                 | Leistung & Blindstromkompensation        | S, P, Q, I; Kompensationsleistung und Kapazität       |
+|                 | Abschaltbedingung LS-Schalter            | DIN VDE 0100-410, DIN EN 60898-1, c_min = 0,95        |
+| Fluid / Thermo  | Druckverlust Rohrleitung                 | Darcy-Weisbach, Colebrook-White                       |
+|                 | U-Wert Bauteil                           | DIN EN ISO 6946, Temperaturverlauf, f_Rsi, GEG-Vergleich |
+|                 | Wärmeleistung & Rohrdimension            | ṁ = Q̇/(c·Δθ), Nennweite DIN EN 10255, Druckgefälle    |
 
 Funktionen: Seitenleiste mit Suche (Strg+K) · Eingabeprüfung mit Warnungen ·
 Systemskizze · Rechenweg (Formel → eingesetzte Werte → Ergebnis) · Diagramm ·
@@ -76,7 +85,7 @@ lädt das Modell einmal herunter (Ordner mit `model.bin`, `config.json`, `tokeni
 `vocabulary.*`) und legt ihn z. B. auf ein Netzlaufwerk; in den Einstellungen dann
 „Ordner wählen“. Audiodaten verlassen den PC nie.
 
-**Geplant:** Phase 4 – weitere Fachrechner.
+**Weitere Rechner:** siehe „Neuen Rechner hinzufügen“ – jeder Rechner ist eine einzelne Datei.
 
 ## Starten (Entwicklung)
 
