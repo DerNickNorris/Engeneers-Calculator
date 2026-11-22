@@ -19,7 +19,7 @@ from reportlab.platypus import (Image, KeepTogether, Paragraph, SimpleDocTemplat
                                 TableStyle)
 
 from .. import APP_NAME, __version__
-from .model import Calculator, CalcResult, ChoiceField, Level
+from .model import Calculator, CalcResult, ChoiceField, Level, TableField
 from .project import ProjectMeta
 from .textfmt import rich
 from .units import fmt_num, unit_html
@@ -132,6 +132,13 @@ def calc_body(calc: Calculator, raw: dict[str, Any], result: CalcResult, st, pag
         if isinstance(f, ChoiceField):
             rows.append([Paragraph(rich(f.label), st["cell"]), Paragraph("", st["cell"]),
                          Paragraph(rich(f.label_for(merged[f.key])), st["cell"])])
+        elif isinstance(f, TableField):
+            trows, _ = f.parse(merged[f.key])
+            head = " · ".join(f"{rich(c.label)} [{unit_html(c.unit)}]" if c.unit else rich(c.label) for c in f.columns)
+            body = "<br/>".join(" · ".join("–" if v is None else fmt_num(v, c.decimals) for v, c in zip(r, f.columns))
+                                for r in trows)
+            rows.append([Paragraph(rich(f.label), st["cell"]), Paragraph("", st["cell"]),
+                         Paragraph(f"<font color='#5b6b7b'>{head}</font><br/>{body}", st["cell"])])
         else:
             try:
                 val = f"{fmt_num(float(merged[f.key]), f.decimals)} {unit_html(f.unit)}"

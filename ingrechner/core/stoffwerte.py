@@ -7,6 +7,7 @@ Werte nach VDI-Wärmeatlas (gerundet); Abweichungen < 1 % gegenüber der Quelle.
 
 from __future__ import annotations
 
+import math
 from bisect import bisect_left
 from dataclasses import dataclass
 
@@ -88,3 +89,25 @@ def stoffwerte(medium: str, theta: float) -> Stoffwerte:
 
 
 MEDIEN_AUSWAHL = [("wasser", "Wasser"), ("luft", "Luft")]
+
+
+# Sättigungsdampfdruck von Wasser in kPa (IAPWS-IF97, gerundet)
+DAMPFDRUCK_WASSER = [
+    (0, 0.6113), (10, 1.2282), (20, 2.3393), (30, 4.2470), (40, 7.3849), (50, 12.352), (60, 19.946),
+    (70, 31.201), (80, 47.414), (90, 70.182), (100, 101.42), (110, 143.38), (120, 198.67), (130, 270.28),
+    (140, 361.54), (150, 476.16),
+]
+
+
+def dampfdruck(theta: float) -> float:
+    """Sättigungsdampfdruck von Wasser in kPa bei ``theta`` in °C (0 … 150 °C).
+
+    Interpoliert linear in ln(p) über 1/T – damit ist die Abweichung zur IAPWS-Formulierung < 0,1 %.
+    """
+    temps = [t for t, _ in DAMPFDRUCK_WASSER]
+    if not temps[0] <= theta <= temps[-1]:
+        raise ValueError(f"Dampfdruck Wasser: Temperatur {theta:g} °C außerhalb 0 … 150 °C.")
+    i = max(1, bisect_left(temps, theta))
+    (t0, p0), (t1, p1) = DAMPFDRUCK_WASSER[i - 1], DAMPFDRUCK_WASSER[i]
+    x0, x1, x = 1 / (t0 + 273.15), 1 / (t1 + 273.15), 1 / (theta + 273.15)
+    return math.exp(math.log(p0) + (x - x0) / (x1 - x0) * (math.log(p1) - math.log(p0)))

@@ -13,13 +13,13 @@ from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QFormLayout, QHBoxL
                                QSizePolicy, QSplitter, QTableWidget, QTableWidgetItem, QTabWidget,
                                QTextBrowser, QVBoxLayout, QWidget)
 
-from ingrechner.core.model import Calculator, CalcResult, ChoiceField, NumberField
+from ingrechner.core.model import Calculator, CalcResult, ChoiceField, NumberField, TableField
 from ingrechner.core.plotstyle import apply_style
 from ingrechner.core.textfmt import rich
 from ingrechner.core.units import fmt_num, parse_num, pretty_unit
 
 from .theme import C
-from .widgets import Card, MessageBox, SketchWidget
+from .widgets import Card, MessageBox, SketchWidget, TableEditor
 
 
 class CalculatorView(QWidget):
@@ -206,6 +206,29 @@ class CalculatorView(QWidget):
             label.setMinimumWidth(150)
             label.setMaximumWidth(190)
         label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        if isinstance(f, TableField):
+            label.setWordWrap(False)
+            label.setMaximumWidth(16777215)
+            label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            label.setStyleSheet("font-weight: 600;")
+            editor = TableEditor(f)
+            editor.edited.connect(lambda key=f.key: self._on_edit(key))
+            err = QLabel()
+            err.setObjectName("FieldError")
+            err.setWordWrap(True)
+            err.setVisible(False)
+            holder = QWidget()
+            v = QVBoxLayout(holder)
+            v.setContentsMargins(0, 4, 0, 4)
+            v.setSpacing(4)
+            v.addWidget(label)
+            v.addWidget(editor)
+            v.addWidget(err)
+            self.form.addRow(holder)
+            self._editors[f.key] = editor
+            self._errors[f.key] = err
+            self._rows[f.key] = [holder]
+            return
         if isinstance(f, ChoiceField):
             editor = QComboBox()
             editor.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
@@ -294,6 +317,8 @@ class CalculatorView(QWidget):
             if isinstance(f, ChoiceField):
                 idx = ed.findData(merged[f.key])
                 ed.setCurrentIndex(max(0, idx))
+            elif isinstance(f, TableField):
+                ed.set_rows(merged[f.key])
             else:
                 ed.setText(fmt_num(float(merged[f.key]), f.decimals).replace(" ", ""))
             ed.blockSignals(False)
@@ -309,6 +334,8 @@ class CalculatorView(QWidget):
             ed = self._editors[f.key]
             if isinstance(f, ChoiceField):
                 out[f.key] = ed.currentData()
+            elif isinstance(f, TableField):
+                out[f.key] = ed.rows()
             else:
                 try:
                     out[f.key] = parse_num(ed.text())
@@ -320,6 +347,9 @@ class CalculatorView(QWidget):
         """Nur gültig lesbare Werte – zum Speichern im Projekt."""
         return {k: v for k, v in self.raw_values().items()
                 if not isinstance(v, str) or isinstance(self.calc.field(k), ChoiceField)}
+
+    def _table_ok(self, key: str) -> bool:
+        return self.calc.field(key).parse(self._editors[key].rows())[1] is None
 
     def set_position(self, nr: str, titel: str) -> None:
         for ed, value in ((self.pos_nr, nr), (self.pos_title, titel)):
@@ -340,11 +370,14 @@ class CalculatorView(QWidget):
 
     def _on_edit(self, key: str) -> None:
         f = self.calc.field(key)
-        text = self._editors[key].text()
-        try:
-            msg = f.check(parse_num(text)) if isinstance(f, NumberField) else None
-        except ValueError:
-            msg = "Bitte eine Zahl eingeben (Komma oder Punkt als Dezimaltrenner)."
+        if isinstance(f, TableField):
+            msg = f.parse(self._editors[key].rows())[1]
+        else:
+            text = self._editors[key].text()
+            try:
+                msg = f.check(parse_num(text)) if isinstance(f, NumberField) else None
+            except ValueError:
+                msg = "Bitte eine Zahl eingeben (Komma oder Punkt als Dezimaltrenner)."
         self._show_error(key, msg)
         self._mark_stale()
         self.sketch.set_svg(self.calc.sketch_svg(self.calc.defaults() | self.valid_values()))

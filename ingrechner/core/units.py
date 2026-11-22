@@ -8,9 +8,16 @@ import pint
 
 ureg = pint.UnitRegistry()
 ureg.define("var = volt_ampere")      # Blindleistung (Voltampere reaktiv)
+ureg.define("EUR = [currency]")       # Geldbeträge (Energiekosten)
 Q_ = ureg.Quantity
 
 _SUPERSCRIPT = {"2": "²", "3": "³", "4": "⁴", "-1": "⁻¹", "-2": "⁻²"}
+
+
+def _kompakt(text: str) -> str:
+    """Übliche Kurzformen: kW·h → kWh, EUR → €, year → a."""
+    return (text.replace("(kW·h)", "kWh").replace("kW·h", "kWh").replace("EUR", "€").replace("year", "a")
+            .replace("tonne", "t"))
 
 
 def pretty_unit(unit: str) -> str:
@@ -22,7 +29,7 @@ def pretty_unit(unit: str) -> str:
         text = text.replace(f"**{exp}", sup)
     text = text.replace(" * ", "·").replace("*", "·")
     text = text.replace("milliohm", "mΩ").replace("ohm", "Ω").replace("degC", "°C").replace("percent", "%").replace("degree", "°").replace("microfarad", "µF").replace("hour", "h").replace("liter", "l").replace("minute", "min")
-    return text
+    return _kompakt(text)
 
 
 def unit_html(unit: str) -> str:
@@ -34,7 +41,7 @@ def unit_html(unit: str) -> str:
         text = text.replace(f"**{exp}", f"<super>{exp.replace('-', '−')}</super>")
     text = text.replace(" * ", "·").replace("*", "·")
     text = text.replace("milliohm", "mΩ").replace("ohm", "Ω").replace("degC", "°C").replace("percent", "%").replace("degree", "°").replace("microfarad", "µF").replace("hour", "h").replace("liter", "l").replace("minute", "min")
-    return text
+    return _kompakt(text)
 
 
 def fmt_num(value: float, decimals: int = 3) -> str:

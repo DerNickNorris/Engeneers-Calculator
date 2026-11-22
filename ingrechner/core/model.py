@@ -61,7 +61,64 @@ class ChoiceField:
         return dict(self.options).get(value, value)
 
 
-Field = NumberField | ChoiceField
+@dataclass
+class Column:
+    key: str
+    label: str
+    unit: str = ""
+    optional: bool = False
+    decimals: int = 3
+    min: float | None = None
+
+
+@dataclass
+class TableField:
+    """Tabelle mit Zahlenspalten, z. B. Kennlinienpunkte (Q, H, η).
+
+    Der Wert ist eine Liste von Zeilen; jede Zeile eine Liste von Zahlen (``None`` = leer,
+    nur in optionalen Spalten erlaubt). Ganz leere Zeilen werden ignoriert.
+    """
+
+    key: str
+    label: str
+    columns: list[Column]
+    default: list[list[float | None]]
+    min_rows: int = 2
+    max_rows: int = 12
+    tooltip: str = ""
+    visible_if: dict[str, list[str]] | None = None
+
+    def parse(self, value: Any) -> tuple[list[list[float | None]], str | None]:
+        rows: list[list[float | None]] = []
+        if not isinstance(value, (list, tuple)):
+            return [], f"{self.label}: ungültige Tabelle."
+        for r, row in enumerate(value, 1):
+            cells = list(row) + [None] * (len(self.columns) - len(row))
+            if all(c in (None, "") for c in cells):
+                continue
+            out: list[float | None] = []
+            for col, cell in zip(self.columns, cells):
+                if cell in (None, ""):
+                    if not col.optional:
+                        return [], f"{self.label}, Zeile {r}: „{col.label}“ fehlt."
+                    out.append(None)
+                    continue
+                try:
+                    num = float(str(cell).replace(",", ".")) if isinstance(cell, str) else float(cell)
+                except (TypeError, ValueError):
+                    return [], f"{self.label}, Zeile {r}: „{cell}“ ist keine gültige Zahl."
+                if col.min is not None and num < col.min:
+                    return [], f"{self.label}, Zeile {r}: „{col.label}“ muss ≥ {fmt_num(col.min, 3)} sein."
+                out.append(num)
+            rows.append(out)
+        if len(rows) < self.min_rows:
+            return rows, f"{self.label}: mindestens {self.min_rows} Zeilen angeben."
+        if len(rows) > self.max_rows:
+            return rows, f"{self.label}: höchstens {self.max_rows} Zeilen."
+        return rows, None
+
+
+Field = NumberField | ChoiceField | TableField
 
 
 @dataclass
@@ -141,7 +198,8 @@ class Calculator:
 
     # ------------------------------------------------------------------ API
     def defaults(self) -> dict[str, Any]:
-        return {f.key: f.default for f in self.fields}
+        return {f.key: ([list(r) for r in f.default] if isinstance(f, TableField) else f.default)
+                for f in self.fields}
 
     def field(self, key: str) -> Field:
         for f in self.fields:
@@ -165,6 +223,12 @@ class Calculator:
                 if v not in dict(f.options):
                     errors[f.key] = f"Ungültige Auswahl für {f.label}."
                 inp[f.key] = v
+                continue
+            if isinstance(f, TableField):
+                rows, msg = f.parse(v if self.is_visible(f, values) else f.default)
+                if msg:
+                    errors[f.key] = msg
+                inp[f.key] = rows
                 continue
             if not self.is_visible(f, values):
                 inp[f.key] = Q_(float(f.default), f.unit) if f.unit else float(f.default)

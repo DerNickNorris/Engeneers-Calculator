@@ -62,6 +62,9 @@ QLineEdit, QComboBox, QPlainTextEdit, QTextEdit, QDateEdit {{
 }}
 QLineEdit:focus, QComboBox:focus, QPlainTextEdit:focus {{ border: 1px solid {C['accent']}; }}
 QLineEdit[invalid="true"] {{ border: 1px solid {C['error']}; background: {C['error_bg']}; }}
+QTableWidget#FieldTable {{ background: {C['panel']}; border: 1px solid {C['border_strong']}; border-radius: 5px;
+    gridline-color: {C['border']}; selection-background-color: {C['accent_soft']}; selection-color: {C['text']}; }}
+QTableWidget#FieldTable[invalid="true"] {{ border: 1px solid {C['error']}; }}
 QComboBox::drop-down {{ border: none; width: 22px; }}
 QComboBox QAbstractItemView {{ background: {C['panel']}; border: 1px solid {C['border_strong']};
     selection-background-color: {C['accent_soft']}; selection-color: {C['text']}; }}
@@ -72,6 +75,7 @@ QPushButton:hover {{ background: {C['accent_softer']}; border-color: {C['accent'
 QPushButton:pressed {{ background: {C['accent_soft']}; }}
 QPushButton#Primary {{ background: {C['accent']}; color: white; border: 1px solid {C['accent']}; font-weight: 600; }}
 QPushButton#Primary:hover {{ background: {C['accent_hover']}; }}
+QPushButton#Small {{ padding: 2px 10px; font-size: 8.5pt; }}
 
 QTableWidget {{ background: {C['panel']}; border: none; gridline-color: {C['border']};
                 selection-background-color: {C['accent_soft']}; selection-color: {C['text']}; }}
