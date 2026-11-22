@@ -6,7 +6,7 @@ from typing import Any
 
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QFormLayout, QHBoxLayout, QHeaderView,
                                QLabel, QLineEdit, QPlainTextEdit, QPushButton, QScrollArea,
@@ -25,11 +25,13 @@ from .widgets import Card, MessageBox, SketchWidget
 class CalculatorView(QWidget):
     changed = Signal()      # Eingaben geändert
     computed = Signal()     # neu berechnet
+    meta_changed = Signal() # Positionsnummer/Bezeichnung geändert
 
     def __init__(self, calc: Calculator, parent: QWidget | None = None, context=None) -> None:
         super().__init__(parent)
         self.calc = calc
         self.ctx = context
+        self.position_id: str | None = None
         self.result: CalcResult | None = None
         self._stale = True
         self._editors: dict[str, QLineEdit | QComboBox] = {}
@@ -61,6 +63,25 @@ class CalculatorView(QWidget):
         desc.setWordWrap(True)
         outer.addWidget(desc)
 
+        pos_row = QHBoxLayout()
+        pos_row.setSpacing(6)
+        pos_lbl = QLabel("Pos.")
+        pos_lbl.setStyleSheet(f"font-weight: 600; color: {C['heading']};")
+        self.pos_nr = QLineEdit()
+        self.pos_nr.setFixedWidth(70)
+        self.pos_nr.setPlaceholderText("Nr.")
+        self.pos_nr.setToolTip("Positionsnummer im Projekt, z. B. 3, 2.1 oder A3")
+        self.pos_title = QLineEdit()
+        self.pos_title.setPlaceholderText(f"Bezeichnung, z. B. „Träger Achse B“ (sonst: {self.calc.title})")
+        self.pos_title.setMaximumWidth(520)
+        for ed in (self.pos_nr, self.pos_title):
+            ed.textEdited.connect(self.meta_changed)
+        pos_row.addWidget(pos_lbl)
+        pos_row.addWidget(self.pos_nr)
+        pos_row.addWidget(self.pos_title, 1)
+        pos_row.addStretch(1)
+        outer.addLayout(pos_row)
+
         split = QSplitter(Qt.Horizontal)
         split.setChildrenCollapsible(False)
         split.setHandleWidth(12)
@@ -88,7 +109,7 @@ class CalculatorView(QWidget):
         in_card.body.addLayout(self.form)
 
         self.notiz = QPlainTextEdit()
-        self.notiz.setPlaceholderText("Position / Notiz für den Bericht (optional)")
+        self.notiz.setPlaceholderText("Notiz für den Bericht (optional)")
         self.notiz.setFixedHeight(54)
         self.notiz.textChanged.connect(self.changed)
         in_card.body.addWidget(self.notiz)
@@ -126,6 +147,7 @@ class CalculatorView(QWidget):
         self.stale_label.setWordWrap(True)
         res_card.body.addWidget(self.stale_label)
         res_inner = QWidget()
+        self._res_inner = res_inner
         res_lay = QVBoxLayout(res_inner)
         res_lay.setContentsMargins(0, 0, 4, 0)
         res_lay.setSpacing(8)
@@ -149,6 +171,7 @@ class CalculatorView(QWidget):
         res_lay.addLayout(self.msg_box)
         res_lay.addStretch(1)
         res_scroll = QScrollArea()
+        self._res_scroll = res_scroll
         res_scroll.setWidgetResizable(True)
         res_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         res_scroll.setWidget(res_inner)
@@ -295,6 +318,12 @@ class CalculatorView(QWidget):
         return {k: v for k, v in self.raw_values().items()
                 if not isinstance(v, str) or isinstance(self.calc.field(k), ChoiceField)}
 
+    def set_position(self, nr: str, titel: str) -> None:
+        for ed, value in ((self.pos_nr, nr), (self.pos_title, titel)):
+            ed.blockSignals(True)
+            ed.setText(value)
+            ed.blockSignals(False)
+
     def set_notiz(self, text: str) -> None:
         self.notiz.blockSignals(True)
         self.notiz.setPlainText(text)
@@ -361,6 +390,22 @@ class CalculatorView(QWidget):
         self.computed.emit()
         return res
 
+    def _fit_results(self) -> None:
+        """Mindesthöhe des Ergebnisbereichs setzen.
+
+        Umbrechende Hinweistexte melden ihre Höhe nur über heightForWidth; ohne diese
+        Korrektur kann der Scrollbereich zu knapp werden und Hinweise überdecken die Tabelle.
+        """
+        lay = self._res_inner.layout()
+        width = self._res_scroll.viewport().width()
+        h = lay.totalHeightForWidth(width) if lay.hasHeightForWidth() else lay.sizeHint().height()
+        self._res_inner.setMinimumHeight(max(h, lay.minimumSize().height()))
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        if hasattr(self, "_res_inner"):
+            QTimer.singleShot(0, self._fit_results)
+
     def _show_result(self, res: CalcResult, raw: dict[str, Any]) -> None:
         # Hinweise
         while self.msg_box.count():
@@ -381,6 +426,7 @@ class CalculatorView(QWidget):
 
         for m in res.messages:
             self.msg_box.addWidget(MessageBox(m))
+        QTimer.singleShot(0, self._fit_results)
 
         # Tabelle
         self.table.setRowCount(len(res.values))

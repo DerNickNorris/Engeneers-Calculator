@@ -8,7 +8,7 @@ Systemskizze, Diagramm, PDF-Rechnungsnachweis und Excel/CSV-Export.
 > sind vor Verwendung in Nachweisen von fachkundiger Stelle gegen die jeweilige
 > Originalnorm zu prüfen.
 
-## Stand: Version 0.5.2
+## Stand: Version 0.6.0
 
 **Rechner (Phase 1 und 4)**
 
@@ -31,6 +31,18 @@ Systemskizze, Diagramm, PDF-Rechnungsnachweis und Excel/CSV-Export.
 Funktionen: Seitenleiste mit Suche (Strg+K) · Eingabeprüfung mit Warnungen ·
 Systemskizze · Rechenweg (Formel → eingesetzte Werte → Ergebnis) · Diagramm ·
 Projektdatei `.irp` · PDF-Bericht (Strg+P) · Excel-Export (Strg+E) / CSV.
+
+**Positionen und Gesamtbericht (Version 0.6)**
+
+- Jede Berechnung ist eine **Position** im Projekt mit Nummer und Bezeichnung
+  (z. B. „Pos. 3 – Träger Achse B“) – beliebig viele, auch mehrere vom selben Rechner.
+  Positionsliste oben links: Neu, Duplizieren, Löschen, Verschieben. Ein Klick auf einen
+  Rechner öffnet dessen zuletzt benutzte Position oder legt eine neue an.
+- **Gesamtbericht** (*Datei › Gesamtbericht*, Strg+Umschalt+P): ein PDF mit Deckblatt
+  (Projektdaten, Unterschriftsfelder), Inhaltsverzeichnis mit Seitenzahlen und
+  PDF-Lesezeichen, Ergebnisübersicht aller Positionen mit Status (erfüllt / Warnung / Fehler)
+  und den vollständigen Nachweisen; Positionen und Bestandteile sind wählbar.
+- Projektdateien älterer Versionen werden automatisch übernommen (je Rechner eine Position).
 
 **Werkzeuge (Phase 2)**
 

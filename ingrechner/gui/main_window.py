@@ -7,18 +7,20 @@ from pathlib import Path
 from PySide6.QtCore import QSettings, QStandardPaths, Qt
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (QFileDialog, QHBoxLayout, QLabel, QLineEdit, QMainWindow,
-                               QMessageBox, QStackedWidget, QToolBar, QTreeWidget, QTreeWidgetItem,
-                               QVBoxLayout, QWidget)
+                               QMessageBox, QProgressDialog, QSplitter, QStackedWidget, QToolBar,
+                               QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from ingrechner import APP_NAME, __version__
 from ingrechner.core import registry
 from ingrechner.core.export import export_csv, export_xlsx
 from ingrechner.core.project import FILE_SUFFIX, Project
+from ingrechner.core.project_report import build_project_report
 from ingrechner.core.report import build_pdf, plot_png
 
 from .calc_view import CalculatorView
 from .context import AppContext
 from .dialogs import ABOUT_HTML, ProjectMetaDialog, SettingsDialog
+from .positions import PositionsPanel, ReportDialog
 from .tools import tools
 from .theme import C
 from .widgets import Card, svg_to_png
@@ -38,6 +40,8 @@ class MainWindow(QMainWindow):
         self.calc_classes = registry.discover()
         self.tool_specs = tools()
         self.views: dict[str, QWidget] = {}
+        self.calc_by_id = {c.id: c for c in self.calc_classes}
+        self._last_pos: dict[str, str] = {}      # Rechner-ID -> zuletzt geöffnete Position
         self.project = Project()
         self.project.meta.bearbeiter = self.ctx.default_author
         self.resize(1360, 860)
@@ -67,7 +71,7 @@ class MainWindow(QMainWindow):
 
         side = QWidget()
         side.setObjectName("Sidebar")
-        side.setFixedWidth(270)
+        side.setFixedWidth(290)
         sl = QVBoxLayout(side)
         sl.setContentsMargins(12, 14, 12, 12)
         sl.setSpacing(8)
@@ -85,13 +89,27 @@ class MainWindow(QMainWindow):
         self.search.returnPressed.connect(self._open_first_match)
         sl.addWidget(self.search)
 
+        self.positions = PositionsPanel(self.calc_classes)
+        self.positions.open_requested.connect(self.open_position)
+        self.positions.add_requested.connect(lambda cid: self.open_position(self.new_position(cid)))
+        self.positions.duplicate_requested.connect(self.duplicate_position)
+        self.positions.delete_requested.connect(self.delete_position)
+        self.positions.move_requested.connect(self.move_position)
+
         self.tree = QTreeWidget()
         self.tree.setHeaderHidden(True)
         self.tree.setIndentation(14)
         self.tree.itemClicked.connect(self._on_tree_item)
         self.tree.itemActivated.connect(self._on_tree_item)
         self._fill_tree()
-        sl.addWidget(self.tree, 1)
+        split = QSplitter(Qt.Vertical)
+        split.setChildrenCollapsible(False)
+        split.setHandleWidth(10)
+        split.addWidget(self.positions)
+        split.addWidget(self.tree)
+        split.setSizes([260, 420])
+        sl.addWidget(split, 1)
+        self.positions.refresh(self.project)
         root.addWidget(side)
 
         self.stack = QStackedWidget()
@@ -160,8 +178,11 @@ class MainWindow(QMainWindow):
             f"<p>Wählen Sie links einen Rechner aus oder drücken Sie <b>Strg+K</b>, um zu suchen.</p>"
             f"<ul style='margin-left:-20px'>"
             f"<li><b>Berechnen:</b> Enter, F5 oder Schaltfläche „Berechnen“</li>"
-            f"<li><b>Projekt:</b> Speichert die Eingaben aller Rechner in einer <code>{FILE_SUFFIX}</code>-Datei</li>"
-            f"<li><b>Bericht:</b> PDF-Rechnungsnachweis mit Rechenweg, Skizze und Diagramm (Strg+P)</li>"
+            f"<li><b>Positionen:</b> Jede Berechnung ist eine Position im Projekt (z. B. „Pos. 3 – Träger "
+            f"Achse B“) – beliebig viele, auch vom selben Rechner (Liste oben links)</li>"
+            f"<li><b>Projekt:</b> Speichert alle Positionen in einer <code>{FILE_SUFFIX}</code>-Datei</li>"
+            f"<li><b>Bericht:</b> PDF einer Position (Strg+P) oder <b>Gesamtbericht</b> aller Positionen mit "
+            f"Deckblatt, Inhaltsverzeichnis und Ergebnisübersicht (Strg+Umschalt+P)</li>"
             f"<li><b>Export:</b> Ergebnisse als Excel- oder CSV-Datei</li>"
             f"<li><b>Werkzeuge:</b> Einheitenumrechner, wissenschaftlicher Rechner, Materialdatenbank "
             f"(Werkstoffwerte per „Werkstoff …“ in Rechner übernehmen) und Funktionsplotter</li>"
@@ -191,7 +212,10 @@ class MainWindow(QMainWindow):
         self.a_save = act("Speichern", self.save_project, QKeySequence.Save)
         self.a_save_as = act("Speichern unter …", self.save_project_as, QKeySequence.SaveAs)
         self.a_meta = act("Projektdaten …", self.edit_meta, "Ctrl+I")
-        self.a_pdf = act("PDF-Bericht …", self.export_pdf, QKeySequence.Print)
+        self.a_pdf = act("PDF-Bericht …", self.export_pdf, QKeySequence.Print,
+                         "PDF-Bericht der aktuellen Position")
+        self.a_report = act("Gesamtbericht …", self.export_report, "Ctrl+Shift+P",
+                            "Alle Positionen in einem PDF mit Deckblatt und Inhaltsverzeichnis")
         self.a_xlsx = act("Export Excel …", lambda: self.export_table("xlsx"), "Ctrl+E")
         self.a_csv = act("Export CSV …", lambda: self.export_table("csv"))
         self.a_quit = act("Beenden", self.close, QKeySequence.Quit)
@@ -200,7 +224,7 @@ class MainWindow(QMainWindow):
 
         m = self.menuBar().addMenu("&Datei")
         for a in (self.a_new, self.a_open, None, self.a_save, self.a_save_as, None, self.a_meta, None,
-                  self.a_pdf, self.a_xlsx, self.a_csv, None, self.a_quit):
+                  self.a_pdf, self.a_report, self.a_xlsx, self.a_csv, None, self.a_quit):
             m.addSeparator() if a is None else m.addAction(a)
         x = self.menuBar().addMenu("E&xtras")
         x.addAction(act("Einstellungen …", self.edit_settings, QKeySequence.Preferences))
@@ -212,7 +236,8 @@ class MainWindow(QMainWindow):
         tb = QToolBar("Werkzeugleiste")
         tb.setMovable(False)
         tb.setToolButtonStyle(Qt.ToolButtonTextOnly)
-        for a in (self.a_new, self.a_open, self.a_save, None, self.a_meta, None, self.a_pdf, self.a_xlsx):
+        for a in (self.a_new, self.a_open, self.a_save, None, self.a_meta, None, self.a_pdf, self.a_report,
+                  self.a_xlsx):
             tb.addSeparator() if a is None else tb.addAction(a)
         self.addToolBar(tb)
         self._update_actions()
@@ -250,24 +275,94 @@ class MainWindow(QMainWindow):
             self.open_calculator(calc_id)
 
     def open_calculator(self, calc_id: str) -> QWidget:
+        """Rechner aus der Liste öffnen: zuletzt benutzte Position dieses Rechners oder eine neue."""
         if calc_id.startswith(("tool.", "proto.")):
             return self.open_tool(calc_id)
-        view = self.views.get(calc_id)
+        existing = self.project.positions_for(calc_id)
+        pid = self._last_pos.get(calc_id)
+        if not any(p.id == pid for p in existing):
+            pid = existing[-1].id if existing else self.new_position(calc_id)
+        return self.open_position(pid)
+
+    # ------------------------------------------------------- Positionen
+    def new_position(self, calc_id: str, inputs: dict | None = None) -> str:
+        pos = self.project.add_position(calc_id, inputs)
+        self.positions.refresh(self.project, pos.id)
+        self._update_title()
+        return pos.id
+
+    def open_position(self, pid: str) -> QWidget | None:
+        key = f"pos:{pid}"
+        view = self.views.get(key)
         if view is None:
-            cls = next(c for c in self.calc_classes if c.id == calc_id)
+            pos = self.project.get(pid)
+            cls = self.calc_by_id.get(pos.calc)
+            if cls is None:
+                QMessageBox.warning(self, "Unbekannter Rechner",
+                                    f"Die Position verwendet den Rechner „{pos.calc}“, den diese Programmversion "
+                                    "nicht kennt. Die Daten bleiben beim Speichern erhalten.")
+                return None
             view = CalculatorView(cls(), context=self.ctx)
-            saved = self.project.inputs(calc_id)
-            if saved:
-                view.set_values(saved)
-                view.set_notiz(self.project.notiz(calc_id))
+            view.position_id = pid
+            if pos.inputs:
+                view.set_values(pos.inputs)
+            view.set_notiz(pos.notiz)
+            view.set_position(pos.nr, pos.titel)
             view.changed.connect(lambda v=view: self._on_view_changed(v))
             view.computed.connect(lambda v=view: self._on_view_changed(v))
-            self.views[calc_id] = view
+            view.meta_changed.connect(lambda v=view: self._on_meta_changed(v))
+            self.views[key] = view
             self.stack.addWidget(view)
         self.stack.setCurrentWidget(view)
-        self.statusBar().showMessage(f"{view.calc.category} › {view.calc.title}")
+        self._last_pos[view.calc.id] = pid
+        self.positions.select(pid)
+        pos = self.project.get(pid)
+        self.statusBar().showMessage(f"{pos.label(view.calc.title)} · {view.calc.category} › {view.calc.title}")
         self._update_actions()
         return view
+
+    def _sync_view(self, view: CalculatorView) -> None:
+        if view.position_id is not None:
+            self.project.update(view.position_id, inputs=view.valid_values(), notiz=view.notiz.toPlainText())
+
+    def _sync_views(self) -> None:
+        for v in self.views.values():
+            if isinstance(v, CalculatorView):
+                self._sync_view(v)
+
+    def duplicate_position(self, pid: str) -> None:
+        self._sync_views()
+        new = self.project.duplicate(pid)
+        self.positions.refresh(self.project, new.id)
+        self.open_position(new.id)
+        self._update_title()
+
+    def delete_position(self, pid: str) -> None:
+        pos = self.project.get(pid)
+        cls = self.calc_by_id.get(pos.calc)
+        label = pos.label(cls.title if cls else pos.calc)
+        if QMessageBox.question(self, "Position löschen", f"„{label}“ aus dem Projekt löschen?") != QMessageBox.Yes:
+            return
+        idx = next(i for i, p in enumerate(self.project.positions) if p.id == pid)
+        view = self.views.pop(f"pos:{pid}", None)
+        if view is not None:
+            self.stack.removeWidget(view)
+            view.deleteLater()
+        self.project.remove(pid)
+        remaining = self.project.positions
+        nxt = remaining[min(idx, len(remaining) - 1)].id if remaining else None
+        self.positions.refresh(self.project, nxt)
+        if nxt:
+            self.open_position(nxt)
+        else:
+            self.stack.setCurrentWidget(self.welcome)
+            self._update_actions()
+        self._update_title()
+
+    def move_position(self, pid: str, delta: int) -> None:
+        if self.project.move(pid, delta):
+            self.positions.refresh(self.project, pid)
+            self._update_title()
 
     def open_tool(self, tool_id: str) -> QWidget:
         view = self.views.get(tool_id)
@@ -288,15 +383,25 @@ class MainWindow(QMainWindow):
         return w if isinstance(w, CalculatorView) else None
 
     def _on_view_changed(self, view: CalculatorView) -> None:
-        self.project.set_inputs(view.calc.id, view.valid_values(), view.notiz.toPlainText())
+        self._sync_view(view)
+        self._update_title()
+
+    def _on_meta_changed(self, view: CalculatorView) -> None:
+        if view.position_id is None:
+            return
+        self.project.update(view.position_id, nr=view.pos_nr.text().strip(), titel=view.pos_title.text().strip())
+        self.positions.refresh(self.project, view.position_id)
         self._update_title()
 
     def _update_actions(self) -> None:
         has_view = self.current_view() is not None
         for a in (self.a_pdf, self.a_xlsx, self.a_csv):
             a.setEnabled(has_view)
+        if hasattr(self, "a_report"):
+            self.a_report.setEnabled(bool(self.project.positions))
 
     def _update_title(self) -> None:
+        self._update_actions()
         star = " *" if self.project.dirty else ""
         self.setWindowTitle(f"{self.project.name}{star} – {APP_NAME}")
 
@@ -327,6 +432,8 @@ class MainWindow(QMainWindow):
             view.deleteLater()
         self.stack.setCurrentWidget(self.welcome)
         self.tree.clearSelection()
+        self._last_pos.clear()
+        self.positions.refresh(self.project)
         self._update_actions()
 
     def new_project(self) -> None:
@@ -354,9 +461,9 @@ class MainWindow(QMainWindow):
         self._remember_dir(path)
         self._reset_views()
         self._update_title()
-        first = next((cid for cid in self.project.calcs if any(c.id == cid for c in self.calc_classes)), None)
+        first = next((p.id for p in self.project.positions if p.calc in self.calc_by_id), None)
         if first:
-            self.open_calculator(first)
+            self.open_position(first)
         self.statusBar().showMessage(f"Projekt geladen: {path}", 5000)
 
     def save_project(self) -> bool:
@@ -373,9 +480,7 @@ class MainWindow(QMainWindow):
         return self._save_to(Path(path))
 
     def _save_to(self, path: Path) -> bool:
-        for view in self.views.values():
-            if isinstance(view, CalculatorView):
-                self.project.set_inputs(view.calc.id, view.valid_values(), view.notiz.toPlainText())
+        self._sync_views()
         try:
             saved = self.project.save(path)
         except OSError as exc:
@@ -407,8 +512,14 @@ class MainWindow(QMainWindow):
             return None
         return view
 
+    def _position_label(self, view: CalculatorView) -> str:
+        if view.position_id is None:
+            return ""
+        return self.project.get(view.position_id).label(view.calc.title)
+
     def _export_name(self, view: CalculatorView, suffix: str) -> str:
-        base = f"{self.project.meta.nummer + '_' if self.project.meta.nummer else ''}{view.calc.title}"
+        label = self._position_label(view) or view.calc.title
+        base = f"{self.project.meta.nummer + '_' if self.project.meta.nummer else ''}{label}"
         safe = "".join(ch if ch.isalnum() or ch in " -_." else "_" for ch in base).strip()
         return str(Path(self._last_dir()) / f"{safe}.{suffix}")
 
@@ -424,12 +535,60 @@ class MainWindow(QMainWindow):
         svg = view.calc.sketch_svg(view.calc.defaults() | raw)
         try:
             build_pdf(path, view.calc, raw, view.result, self.project.meta, view.notiz.toPlainText(),
-                      svg_to_png(svg) if svg else None, plot_png(view.calc, raw, view.result))
+                      svg_to_png(svg) if svg else None, plot_png(view.calc, raw, view.result),
+                      position=self._position_label(view))
         except OSError as exc:
             QMessageBox.critical(self, "Fehler", f"PDF konnte nicht geschrieben werden:\n{exc}")
             return
         self._remember_dir(path)
         self.statusBar().showMessage(f"PDF-Bericht erstellt: {path}", 6000)
+
+    def export_report(self) -> None:
+        """Gesamtbericht: alle (gewählten) Positionen in einem PDF."""
+        self._sync_views()
+        if not self.project.positions:
+            QMessageBox.information(self, "Gesamtbericht", "Das Projekt enthält noch keine Positionen.")
+            return
+        dlg = ReportDialog(self.project, {c.id: c.title for c in self.calc_classes}, self.settings, self)
+        if not dlg.exec():
+            return
+        opts = dlg.options()
+        name = "".join(ch if ch.isalnum() or ch in " -_." else "_"
+                       for ch in f"{self.project.meta.nummer + '_' if self.project.meta.nummer else ''}"
+                                 f"{opts.titel} {self.project.name}").strip()
+        path, _ = QFileDialog.getSaveFileName(self, "Gesamtbericht speichern", str(Path(self._last_dir()) / f"{name}.pdf"),
+                                              "PDF-Datei (*.pdf)")
+        if not path:
+            return
+        n = len(opts.position_ids or self.project.positions)
+        prog = QProgressDialog("Gesamtbericht wird erstellt …", None, 0, n, self)
+        prog.setWindowTitle("Gesamtbericht")
+        prog.setMinimumDuration(300)
+        prog.setWindowModality(Qt.WindowModal)
+
+        def step(i: int, total: int) -> None:
+            prog.setValue(i)
+            prog.setLabelText(f"Position {i} von {total} …")
+
+        try:
+            build_project_report(path, self.project, self.calc_by_id, opts, sketch_png_fn=svg_to_png, progress=step)
+        except (OSError, ValueError) as exc:
+            QMessageBox.critical(self, "Fehler", f"Der Gesamtbericht konnte nicht erstellt werden:\n{exc}")
+            return
+        finally:
+            prog.close()
+        self._remember_dir(path)
+        self.statusBar().showMessage(f"Gesamtbericht erstellt: {path}", 8000)
+        box = QMessageBox(QMessageBox.Information, "Gesamtbericht", f"Der Gesamtbericht wurde erstellt:\n{path}",
+                          parent=self)
+        open_btn = box.addButton("Öffnen", QMessageBox.AcceptRole)
+        box.addButton("Schließen", QMessageBox.RejectRole)
+        box.exec()
+        if box.clickedButton() is open_btn:
+            from PySide6.QtCore import QUrl
+            from PySide6.QtGui import QDesktopServices
+
+            QDesktopServices.openUrl(QUrl.fromLocalFile(path))
 
     def export_table(self, kind: str) -> None:
         view = self._ready_view()

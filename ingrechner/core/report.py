@@ -89,19 +89,8 @@ def _image(png: bytes, max_w: float, max_h: float) -> Image:
     return img
 
 
-def build_pdf(path: str | Path, calc: Calculator, raw: dict[str, Any], result: CalcResult,
-              meta: ProjectMeta, notiz: str = "", sketch_png: bytes | None = None,
-              plot_png: bytes | None = None) -> Path:
-    _register_fonts()
-    st = _styles()
-    path = Path(path)
-    page_w = A4[0] - 36 * mm
-    story: list = []
-
-    # ---- Kopf
-    story.append(Paragraph(rich(calc.title), st["title"]))
-    story.append(Paragraph(f"{calc.category} · {rich(calc.norm)}", st["small"]))
-    story.append(Spacer(1, 4 * mm))
+def head_table(meta: ProjectMeta, st, page_w: float) -> Table:
+    """Kopftabelle mit Projektdaten (Projekt, Nr., Bearbeiter, Datum, Prüfer)."""
     head = [
         [Paragraph("<b>Projekt</b>", st["cell"]), Paragraph(rich(meta.projekt or "–"), st["cell"]),
          Paragraph("<b>Projekt-Nr.</b>", st["cell"]), Paragraph(rich(meta.nummer or "–"), st["cell"])],
@@ -117,13 +106,23 @@ def build_pdf(path: str | Path, calc: Calculator, raw: dict[str, Any], result: C
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("TOPPADDING", (0, 0), (-1, -1), 3),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
     ]))
-    story.append(ht)
-    if notiz.strip():
-        story.append(Spacer(1, 2 * mm))
-        story.append(Paragraph(f"<b>Position / Notiz:</b> {rich(notiz)}", st["base"]))
+    return ht
+
+
+def calc_body(calc: Calculator, raw: dict[str, Any], result: CalcResult, st, page_w: float,
+              sketch_png: bytes | None = None, plot_png: bytes | None = None, prefix: str = "") -> list:
+    """Inhalt eines Rechnungsnachweises: Eingaben, Ergebnisse, Hinweise, Rechenweg, Diagramm.
+
+    ``prefix`` nummeriert die Abschnitte (z. B. „3.“ → „3.1 Eingangswerte“ im Gesamtbericht).
+    """
+    story: list = []
+    sec = iter(range(1, 20))
+
+    def h(title: str) -> Paragraph:
+        return Paragraph(f"{prefix}{next(sec)}  {title}", st["h2"])
 
     # ---- Eingaben (+ Skizze daneben)
-    story.append(Paragraph("1  Eingangswerte", st["h2"]))
+    story.append(h("Eingangswerte"))
     rows = [[Paragraph("<b>Größe</b>", st["cell"]), Paragraph("<b>Symbol</b>", st["cell"]),
              Paragraph("<b>Wert</b>", st["cell"])]]
     merged = calc.defaults() | raw
@@ -134,7 +133,10 @@ def build_pdf(path: str | Path, calc: Calculator, raw: dict[str, Any], result: C
             rows.append([Paragraph(rich(f.label), st["cell"]), Paragraph("", st["cell"]),
                          Paragraph(rich(f.label_for(merged[f.key])), st["cell"])])
         else:
-            val = f"{fmt_num(float(merged[f.key]), f.decimals)} {unit_html(f.unit)}"
+            try:
+                val = f"{fmt_num(float(merged[f.key]), f.decimals)} {unit_html(f.unit)}"
+            except (TypeError, ValueError):
+                val = f"<font color='#b3261e'>{rich(str(merged[f.key]))}</font>"
             rows.append([Paragraph(rich(f.label), st["cell"]), Paragraph(rich(f.symbol), st["cell"]),
                          Paragraph(val, st["cell"])])
     if sketch_png:
@@ -148,8 +150,14 @@ def build_pdf(path: str | Path, calc: Calculator, raw: dict[str, Any], result: C
     else:
         story.append(_table(rows, [page_w * 0.5, page_w * 0.18, page_w * 0.32]))
 
+    if result.field_errors:
+        story.append(h("Eingaben ungültig"))
+        for msg in result.field_errors.values():
+            story.append(Paragraph(f"<font color='#b3261e'>✖ {rich(msg)}</font>", st["base"]))
+        return story
+
     # ---- Ergebnisse
-    story.append(Paragraph("2  Ergebnisse", st["h2"]))
+    story.append(h("Ergebnisse"))
     rows = [[Paragraph("<b>Größe</b>", st["cell"]), Paragraph("<b>Symbol</b>", st["cell"]),
              Paragraph("<b>Wert</b>", st["cell"])]]
     hl = []
@@ -163,7 +171,7 @@ def build_pdf(path: str | Path, calc: Calculator, raw: dict[str, Any], result: C
 
     # ---- Hinweise
     if result.messages:
-        story.append(Paragraph("3  Bewertung und Hinweise", st["h2"]))
+        story.append(h("Bewertung und Hinweise"))
         mrows = []
         for m in result.messages:
             tag = {"info": "Info", "warnung": "Warnung", "fehler": "Fehler"}[m.level.value]
@@ -177,7 +185,7 @@ def build_pdf(path: str | Path, calc: Calculator, raw: dict[str, Any], result: C
         story.append(mt)
 
     # ---- Rechenweg
-    story.append(Paragraph("4  Rechenweg", st["h2"]))
+    story.append(h("Rechenweg"))
     for i, s in enumerate(result.steps, start=1):
         block = Table([
             [Paragraph(f"<b>{i}.</b>", st["cell"]), Paragraph(f"<b>{rich(s.title)}</b>", st["cell"])],
@@ -190,12 +198,39 @@ def build_pdf(path: str | Path, calc: Calculator, raw: dict[str, Any], result: C
 
     # ---- Diagramm
     if plot_png:
-        story.append(KeepTogether([Paragraph("5  Diagramm", st["h2"]), _image(plot_png, page_w, 110 * mm)]))
+        story.append(KeepTogether([h("Diagramm"), _image(plot_png, page_w, 110 * mm)]))
 
     story.append(Spacer(1, 5 * mm))
     story.append(Paragraph(rich(calc.disclaimer), st["small"]))
+    return story
+
+
+def build_pdf(path: str | Path, calc: Calculator, raw: dict[str, Any], result: CalcResult,
+              meta: ProjectMeta, notiz: str = "", sketch_png: bytes | None = None,
+              plot_png: bytes | None = None, position: str = "") -> Path:
+    """Einzelner Rechnungsnachweis. ``position``: z. B. „Pos. 3 – Träger Achse B“."""
+    _register_fonts()
+    st = _styles()
+    path = Path(path)
+    page_w = A4[0] - 36 * mm
+    story: list = []
+
+    # ---- Kopf
+    if position:
+        story.append(Paragraph(rich(position), st["title"]))
+        story.append(Paragraph(f"{rich(calc.title)} · {calc.category} · {rich(calc.norm)}", st["small"]))
+    else:
+        story.append(Paragraph(rich(calc.title), st["title"]))
+        story.append(Paragraph(f"{calc.category} · {rich(calc.norm)}", st["small"]))
+    story.append(Spacer(1, 4 * mm))
+    story.append(head_table(meta, st, page_w))
+    if notiz.strip():
+        story.append(Spacer(1, 2 * mm))
+        story.append(Paragraph(f"<b>Notiz:</b> {rich(notiz)}", st["base"]))
+    story += calc_body(calc, raw, result, st, page_w, sketch_png, plot_png)
 
     stamp = datetime.now().strftime("%d.%m.%Y %H:%M")
+    footer_title = position or calc.title
 
     def on_page(canvas, doc):
         canvas.saveState()
@@ -203,12 +238,12 @@ def build_pdf(path: str | Path, calc: Calculator, raw: dict[str, Any], result: C
         canvas.setFillColor(GREY)
         canvas.setStrokeColor(GRID)
         canvas.line(18 * mm, 14 * mm, A4[0] - 18 * mm, 14 * mm)
-        canvas.drawString(18 * mm, 10 * mm, f"{APP_NAME} {__version__} · {calc.title} · erstellt {stamp}")
+        canvas.drawString(18 * mm, 10 * mm, f"{APP_NAME} {__version__} · {footer_title} · erstellt {stamp}")
         canvas.drawRightString(A4[0] - 18 * mm, 10 * mm, f"Seite {doc.page}")
         canvas.restoreState()
 
     doc = SimpleDocTemplate(str(path), pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm,
-                            topMargin=16 * mm, bottomMargin=20 * mm, title=calc.title,
+                            topMargin=16 * mm, bottomMargin=20 * mm, title=footer_title,
                             author=meta.bearbeiter or APP_NAME, subject=meta.projekt)
     doc.build(story, onFirstPage=on_page, onLaterPages=on_page)
     return path

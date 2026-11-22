@@ -3,6 +3,7 @@
 import os
 
 import numpy as np
+from PySide6.QtCore import Qt
 
 import pytest
 
@@ -82,9 +83,10 @@ def test_projekt_speichern_und_laden(window, tmp_path):
     view.set_values({"L": 123.0})
     view.changed.emit()
     assert window.project.dirty
+    pid = view.position_id
     assert window._save_to(tmp_path / "p.irp")
     window.open_project(str(tmp_path / "p.irp"))
-    assert window.project.inputs("et.spannungsfall")["L"] == 123.0
+    assert window.project.get(pid).inputs["L"] == 123.0
 
 
 # ------------------------------------------------------------- Phase 2
@@ -324,3 +326,81 @@ def test_diktat_erkennt_stummes_mikrofon(window, monkeypatch):
     monkeypatch.setattr(btn, "_run", lambda audio: ran.append(audio))
     btn.stop()
     assert warned and "Datenschutz" in warned[0] and not ran and btn.state == "idle"
+
+
+
+# ------------------------------------------------------------- Positionen / Gesamtbericht
+def test_positionen_im_fenster(window, tmp_path, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    from ingrechner.core.project import Project
+
+    window.project = Project()
+    window._reset_views()
+    v1 = window.open_calculator("mb.biegung_einfeldtraeger")       # legt Pos. 1 an
+    assert len(window.project.positions) == 1 and v1.pos_nr.text() == "1"
+    assert window.open_calculator("mb.biegung_einfeldtraeger") is v1  # erneut: dieselbe Position
+    pid2 = window.new_position("mb.biegung_einfeldtraeger")          # zweite Position desselben Rechners
+    v2 = window.open_position(pid2)
+    assert v2 is not v1 and v2.pos_nr.text() == "2"
+    v2.pos_title.setText("Träger Achse B")
+    v2.pos_title.textEdited.emit("Träger Achse B")
+    v2.set_values({"L": 5000})
+    v2.changed.emit()
+    assert window.project.get(pid2).titel == "Träger Achse B"
+    assert window.project.get(pid2).inputs["L"] == 5000
+    assert "Träger Achse B" in window.positions.list.item(1).text()
+    window.duplicate_position(pid2)
+    assert len(window.project.positions) == 3
+    assert window.project.positions[2].inputs["L"] == 5000
+    monkeypatch.setattr(QMessageBox, "question", staticmethod(lambda *a, **k: QMessageBox.Yes))
+    window.delete_position(window.project.positions[0].id)
+    assert len(window.project.positions) == 2 and window.positions.list.count() == 2
+    assert window.a_report.isEnabled()
+    window.project.dirty = False
+
+
+def test_gesamtbericht_aus_dem_fenster(window, tmp_path, monkeypatch):
+    from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+    from ingrechner.core.project import Project
+    from ingrechner.gui import main_window as mw
+
+    window.project = Project()
+    window._reset_views()
+    window.open_calculator("st.knicken_en1993")
+    window.open_calculator("fl.u_wert")
+
+    class FakeDialog:
+        def __init__(self, project, titles, settings, parent):
+            self.ids = [p.id for p in project.positions]
+
+        def exec(self):
+            return True
+
+        def options(self):
+            from ingrechner.core.project_report import ReportOptions
+
+            return ReportOptions(position_ids=self.ids)
+
+    out = tmp_path / "bericht.pdf"
+    monkeypatch.setattr(mw, "ReportDialog", FakeDialog)
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", staticmethod(lambda *a, **k: (str(out), "")))
+    monkeypatch.setattr(QMessageBox, "exec", lambda self: 0)
+    window.export_report()
+    assert out.exists() and out.read_bytes().startswith(b"%PDF")
+    window.project.dirty = False
+
+
+def test_berichtsdialog(window):
+    from ingrechner.core.project import Project
+    from ingrechner.gui.positions import ReportDialog
+
+    p = Project()
+    a = p.add_position("et.spannungsfall", {}, titel="UV 1")
+    p.add_position("fl.u_wert", {})
+    dlg = ReportDialog(p, {"et.spannungsfall": "Spannungsfall", "fl.u_wert": "U-Wert"})
+    dlg.list.item(1).setCheckState(Qt.Unchecked)
+    dlg.cb["diagramme"].setChecked(False)
+    opts = dlg.options()
+    assert opts.position_ids == [a.id] and not opts.diagramme and opts.deckblatt
