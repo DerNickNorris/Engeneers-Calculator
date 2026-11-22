@@ -1,0 +1,44 @@
+name: Windows-Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Abhängigkeiten installieren
+        run: pip install -r requirements-dev.txt
+
+      - name: Tests
+        run: python -m pytest -q
+
+      - name: EXE bauen
+        run: pyinstaller ingrechner.spec --noconfirm
+
+      - name: Selbsttest der fertigen EXE
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath "dist\Ingenieurs-Rechner\Ingenieurs-Rechner.exe" `
+               -ArgumentList "--selftest","--selftest-out=selftest.txt" -Wait -PassThru
+          Get-Content selftest.txt
+          if ($p.ExitCode -ne 0) { exit 1 }
+
+      - name: Artefakt hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ingenieurs-Rechner-windows
+          path: dist/Ingenieurs-Rechner
