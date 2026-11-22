@@ -330,6 +330,17 @@ KETTEN = [
                "Trocken aufgestellte Pumpe mit Zulauf aus dem Sumpf; bei Tauchmotorpumpen Mindestüberdeckung "
                "nach Herstellerangabe statt NPSH-Nachweis."),
           ]),
+    Kette("Lüftungsanlage", "Luftvolumenstrom → Kanalnetz-Strang → Ventilator & SFP → Wärmerückgewinnung", [
+        ("lu.luftmenge", "RLT – Luftvolumenstrom", {}),
+        ("lu.kanalnetz", "RLT – Kanalnetz (ungünstigster Strang)", {}, {},
+         "Erste Teilstrecke mit dem Volumenstrom aus Pos. „RLT – Luftvolumenstrom“ (bzw. Gerätevolumenstrom) "
+         "beginnen."),
+        ("lu.ventilator", "RLT – Ventilator", {
+            "V": (1, ERGEBNIS, "V"), "dp_ext": (1, ERGEBNIS, "dpext"), "dp_int": (1, ERGEBNIS, "dpg")}),
+        ("lu.wrg", "RLT – Wärmerückgewinnung", {
+            "V": (1, ERGEBNIS, "V"), "Vab": (1, ERGEBNIS, "V"), "t": (2, EINGABE, "t"),
+            "p_strom": (2, EINGABE, "preis")}),
+    ]),
 ]
 
 

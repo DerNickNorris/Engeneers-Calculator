@@ -8,7 +8,7 @@ Systemskizze, Diagramm, PDF-Rechnungsnachweis und Excel/CSV-Export.
 > sind vor Verwendung in Nachweisen von fachkundiger Stelle gegen die jeweilige
 > Originalnorm zu prüfen.
 
-## Stand: Version 0.13.0
+## Stand: Version 0.14.0
 
 **Rechner (Phase 1 und 4)**
 
@@ -131,6 +131,20 @@ Akzentfarbe, Fußzeilenzusatz und Programmhinweis. Gilt für Einzelnachweis, Ges
 Briefkopf auf dem Deckblatt) und Besprechungsprotokoll. Die Vorlage ist eine JSON-Datei mit eingebettetem
 Logo – auf einem Netzlaufwerk abgelegt, nutzt das ganze Team denselben Briefkopf. „Vorschau-PDF öffnen“
 zeigt das Ergebnis vor dem Speichern.
+
+**Lüftung / RLT (Version 0.14)** – Luft und andere Gase aus der Mediendatenbank (Dichte nach Temperatur und
+Aufstellhöhe), feuchte Luft nach Mollier (Magnus-Formel DIN 4108-3):
+
+| Rechner | Inhalt |
+|---------|--------|
+| Luftvolumenstrom | nach Personen und Fläche (DIN EN 16798-1, Kat. I–III), Luftwechsel, Kühllast oder CO₂-Bilanz |
+| Luftkanal – Dimensionierung | rund (DIN EN 1506) oder rechteckig mit fester Höhe, automatische Normgröße nach v_max, R, Δp, d_h, d_e |
+| Lüftungskanalnetz – Strang | Teilstrecken als Tabelle (rund automatisch, rund oder rechteckig vorgegeben), Einbauten, Geräteverluste → Ventilatorpressung |
+| Ventilator – Leistung & SFP | P_el, SFP-Klasse DIN EN 16798-3, Dichtekorrektur, Teillast (~V̇³), Jahresenergie und Kosten |
+| Wärmerückgewinnung | Zuluft nach WRG, Leistung, Nachheizung, Fortluft mit Vereisungsprüfung, Jahreseinsparung über Heizgradstunden (Gaskessel mit Brenngas aus der Datenbank, Wärmepumpe oder Wärmepreis) abzüglich Ventilatormehrstrom |
+| Feuchte Luft (h,x) | Zustand, Mischung, Erwärmen, Kühlen mit Entfeuchtung (Kühlflächenmodell), Kondensat, h,x-Diagramm |
+
+Neue Kette **„Lüftungsanlage“**: Luftvolumenstrom → Kanalnetz → Ventilator → WRG.
 
 **Werkzeuge (Phase 2)**
 

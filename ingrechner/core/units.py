@@ -17,7 +17,7 @@ _SUPERSCRIPT = {"2": "²", "3": "³", "4": "⁴", "-1": "⁻¹", "-2": "⁻²"}
 def _kompakt(text: str) -> str:
     """Übliche Kurzformen: kW·h → kWh, EUR → €, year → a."""
     return (text.replace("(kW·h)", "kWh").replace("kW·h", "kWh").replace("MW·h", "MWh").replace("EUR", "€").replace("year", "a")
-            .replace("tonne", "t").replace("day", "d"))
+            .replace("tonne", "t").replace("day", "d").replace("kelvin", "K"))
 
 
 def pretty_unit(unit: str) -> str:
