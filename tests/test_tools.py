@@ -117,12 +117,12 @@ class TestUnitConv:
 class TestMaterials:
     def test_mitgelieferte_daten_plausibel(self):
         lib = MaterialLibrary(None)
-        assert len(lib.builtin) >= 20
+        assert len(lib.builtin) >= 35
         ids = [m.id for m in lib.builtin]
         assert len(ids) == len(set(ids))
         for m in lib.builtin:
             assert m.builtin and m.name and m.gruppe and m.norm
-            assert m.rho and m.E, m.name
+            assert m.rho and (m.E or m.gruppe == "Dämmstoff"), m.name
             if m.Re and m.Rm:
                 assert m.Re < m.Rm, m.name   # Streckgrenze unter Zugfestigkeit
         s235 = next(m for m in lib.builtin if m.name == "S235JR")

@@ -65,7 +65,7 @@ PROPERTIES: dict[str, tuple[str, str, str, int]] = {
     "Re": ("Streck-/Dehngrenze", "R_e / R_p0,2", "N/mm²", 0),
     "Rm": ("Zugfestigkeit", "R_m", "N/mm²", 0),
     "fc": ("Druckfestigkeit (charakt.)", "f_c,k", "N/mm²", 1),
-    "alpha": ("Wärmeausdehnungskoeffizient", "α", "10⁻⁶/K", 1),
+    "alpha": ("Wärmeausdehnung", "α", "10⁻⁶/K", 1),
     "lam": ("Wärmeleitfähigkeit", "λ", "W/(m·K)", 2),
     "c": ("Spez. Wärmekapazität", "c", "J/(kg·K)", 0),
 }

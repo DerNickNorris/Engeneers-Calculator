@@ -8,7 +8,7 @@ Systemskizze, Diagramm, PDF-Rechnungsnachweis und Excel/CSV-Export.
 > sind vor Verwendung in Nachweisen von fachkundiger Stelle gegen die jeweilige
 > Originalnorm zu prüfen.
 
-## Stand: Version 0.6.0
+## Stand: Version 0.7.0
 
 **Rechner (Phase 1 und 4)**
 
@@ -43,6 +43,21 @@ Projektdatei `.irp` · PDF-Bericht (Strg+P) · Excel-Export (Strg+E) / CSV.
   PDF-Lesezeichen, Ergebnisübersicht aller Positionen mit Status (erfüllt / Warnung / Fehler)
   und den vollständigen Nachweisen; Positionen und Bestandteile sind wählbar.
 - Projektdateien älterer Versionen werden automatisch übernommen (je Rechner eine Position).
+
+**Heizung / Wärme (Version 0.7)**
+
+| Rechner | Inhalt |
+|---|---|
+| Wärmemenge & Wärmeleistung | Q̇ = ṁ·c_p·Δθ – gesucht wahlweise Leistung, Volumenstrom oder Spreizung; Wärmemenge über Betriebsdauer; Wasser oder Luft |
+| Wärmetauscher-Auslegung | Energiebilanz beider Seiten, mittlere log. Temperaturdifferenz, erforderliche Fläche A = Q̇/(k·ΔT_m), Gegen-/Gleichstrom, Temperaturverlauf, Prüfung auf Temperaturkreuzung |
+| Wärmeverlust Rohrleitung (Luft) | DIN EN ISO 12241 / VDI 2055: Konvektion (Gebäude oder Wind) + Strahlung, Oberflächentemperatur, Vergleich ungedämmt, Verlust über Dämmdicke |
+| Temperaturabfall in der Leitung | Austrittstemperatur, Wärmeverlust, Verweilzeit einer durchströmten Leitung |
+
+Temperaturabhängige Stoffwerte für Wasser (0–150 °C) und Luft; Rohrtabellen Stahl (EN 10255/10220)
+und Kupfer (EN 1057). **Rohrwerkstoff und Dämmstoff** sind auswählbar – die Werte kommen aus der
+Materialdatenbank (neue Gruppen „Rohrwerkstoff“ mit P235GH, P235TR1, 1.4571, Cu-DHP, PE-Xa, PE-RT,
+PB-1, PP-R, PE-HD-Mantelrohr und „Dämmstoff“ mit PUR nach EN 253, PIR, Mineralwolle, Elastomer,
+PE-Schaum); eigene Werkstoffe über „Werkstoff …“.
 
 **Werkzeuge (Phase 2)**
 
