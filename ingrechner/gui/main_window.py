@@ -106,6 +106,8 @@ class MainWindow(QMainWindow):
         self.tree.setIndentation(14)
         self.tree.itemClicked.connect(self._on_tree_item)
         self.tree.itemActivated.connect(self._on_tree_item)
+        self.tree.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.tree.customContextMenuRequested.connect(self._tree_menu)
         self._fill_tree()
         split = QSplitter(Qt.Vertical)
         split.setChildrenCollapsible(False)
@@ -124,10 +126,121 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
         self.statusBar().showMessage("Bereit")
 
+    # ------------------------------------------------ Favoriten / Zuletzt
+    MAX_ZULETZT = 8
+
+    def _liste(self, key: str) -> list[str]:
+        v = self.settings.value(key, [])
+        if isinstance(v, str):
+            v = [v] if v else []
+        bekannt = {c.id for c in self.calc_classes} | {t.id for t in self.tool_specs}
+        return [x for x in (v or []) if x in bekannt]
+
+    @property
+    def favoriten(self) -> list[str]:
+        return self._liste("ui/favoriten")
+
+    @property
+    def zuletzt(self) -> list[str]:
+        return self._liste("ui/zuletzt")
+
+    def ist_favorit(self, item_id: str) -> bool:
+        return item_id in self.favoriten
+
+    def favorit_umschalten(self, item_id: str) -> bool:
+        fav = self.favoriten
+        if item_id in fav:
+            fav.remove(item_id)
+        else:
+            fav.append(item_id)
+        self.settings.setValue("ui/favoriten", fav)
+        self._rebuild_spaeter()
+        for v in self.views.values():
+            if isinstance(v, CalculatorView) and v.calc.id == item_id:
+                v.set_favorit(item_id in fav)
+        return item_id in fav
+
+    def _merken(self, item_id: str) -> None:
+        z = [x for x in self.zuletzt if x != item_id]
+        z.insert(0, item_id)
+        z = z[: self.MAX_ZULETZT]
+        if z != self.zuletzt:
+            self.settings.setValue("ui/zuletzt", z)
+            self._rebuild_spaeter()
+
+    def _rebuild_spaeter(self) -> None:
+        """Baum erst nach dem laufenden Klick-Ereignis neu aufbauen (das geklickte Element wird sonst gelöscht)."""
+        from PySide6.QtCore import QTimer
+
+        if not getattr(self, "_rebuild_pending", False):
+            self._rebuild_pending = True
+
+            def run():
+                self._rebuild_pending = False
+                self._rebuild_tree()
+            QTimer.singleShot(0, run)
+
+    def _rebuild_tree(self) -> None:
+        cur = self.tree.currentItem()
+        cur_id = cur.data(0, ROLE_ID) if cur else None
+        bar = self.tree.verticalScrollBar().value()
+        self.tree.clear()
+        self._fill_tree()
+        self._filter_tree(self.search.text())
+        self.tree.verticalScrollBar().setValue(bar)
+        if cur_id:
+            for i in range(self.tree.topLevelItemCount()):
+                cat = self.tree.topLevelItem(i)
+                for j in range(cat.childCount()):
+                    if cat.child(j).data(0, ROLE_ID) == cur_id:
+                        self.tree.blockSignals(True)
+                        self.tree.setCurrentItem(cat.child(j))
+                        self.tree.blockSignals(False)
+                        return
+
+    def _tree_menu(self, pos) -> None:
+        from PySide6.QtWidgets import QMenu
+
+        item = self.tree.itemAt(pos)
+        item_id = item.data(0, ROLE_ID) if item else None
+        if not item_id:
+            return
+        menu = QMenu(self)
+        if self.ist_favorit(item_id):
+            menu.addAction("☆  Aus Favoriten entfernen", lambda: self.favorit_umschalten(item_id))
+        else:
+            menu.addAction("★  Zu Favoriten hinzufügen", lambda: self.favorit_umschalten(item_id))
+        if item_id in self.zuletzt:
+            menu.addAction("Liste „Zuletzt verwendet“ leeren", self._zuletzt_leeren)
+        menu.exec(self.tree.viewport().mapToGlobal(pos))
+
+    def _zuletzt_leeren(self) -> None:
+        self.settings.setValue("ui/zuletzt", [])
+        self._rebuild_spaeter()
+
     def _fill_tree(self) -> None:
         cats: dict[str, QTreeWidgetItem] = {}
         bold = self.tree.font()
         bold.setBold(True)
+        info = {c.id: (c.title, c.category, c.description, c.keywords) for c in self.calc_classes}
+        info |= {t.id: (t.title, t.category, t.description, t.keywords) for t in self.tool_specs}
+        fav = self.favoriten
+        for titel, ids in (("★ Favoriten", fav), ("Zuletzt verwendet", self.zuletzt)):
+            if not ids:
+                continue
+            top = QTreeWidgetItem([titel])
+            top.setFont(0, bold)
+            top.setFlags(Qt.ItemIsEnabled)
+            top.setToolTip(0, "Rechtsklick auf einen Rechner: zu Favoriten hinzufügen/entfernen. Wird nur auf "
+                              "diesem PC gespeichert.")
+            self.tree.addTopLevelItem(top)
+            for item_id in ids:
+                t, cat, desc, kw = info[item_id]
+                child = QTreeWidgetItem([t])
+                child.setData(0, ROLE_ID, item_id)
+                child.setData(0, ROLE_KEYWORDS, " ".join((t, cat, *kw)).lower())
+                child.setToolTip(0, f"{cat}: {desc}")
+                top.addChild(child)
         for cls in self.calc_classes:
             if cls.category not in cats:
                 item = QTreeWidgetItem([cls.category])
@@ -135,7 +248,7 @@ class MainWindow(QMainWindow):
                 item.setFlags(Qt.ItemIsEnabled)
                 self.tree.addTopLevelItem(item)
                 cats[cls.category] = item
-            child = QTreeWidgetItem([cls.title])
+            child = QTreeWidgetItem([("★ " if cls.id in fav else "") + cls.title])
             child.setData(0, ROLE_ID, cls.id)
             child.setData(0, ROLE_KEYWORDS, " ".join((cls.title, cls.category, *cls.keywords)).lower())
             child.setToolTip(0, cls.description)
@@ -148,7 +261,7 @@ class MainWindow(QMainWindow):
                 item.setFlags(Qt.ItemIsEnabled)
                 self.tree.addTopLevelItem(item)
                 tool_cats[spec.category] = item
-            child = QTreeWidgetItem([spec.title])
+            child = QTreeWidgetItem([("★ " if spec.id in fav else "") + spec.title])
             child.setData(0, ROLE_ID, spec.id)
             child.setData(0, ROLE_KEYWORDS, " ".join((spec.title, spec.category, *spec.keywords)).lower())
             child.setToolTip(0, spec.description)
@@ -325,11 +438,14 @@ class MainWindow(QMainWindow):
             view.link_requested.connect(lambda k, v=view: self.link_field(v, k))
             view.unlink_requested.connect(lambda k, v=view: self.unlink_field(v, k))
             view.source_requested.connect(lambda k, v=view: self._open_source(v, k))
+            view.favorit_requested.connect(lambda v=view: self.favorit_umschalten(v.calc.id))
             self.views[key] = view
             self.stack.addWidget(view)
             self._apply_links(view)
         self.stack.setCurrentWidget(view)
         self._last_pos[view.calc.id] = pid
+        self._merken(view.calc.id)
+        view.set_favorit(self.ist_favorit(view.calc.id))
         self.positions.select(pid)
         pos = self.project.get(pid)
         self.statusBar().showMessage(f"{pos.label(view.calc.title)} · {view.calc.category} › {view.calc.title}")
@@ -388,6 +504,7 @@ class MainWindow(QMainWindow):
             self._update_title()
 
     def open_tool(self, tool_id: str) -> QWidget:
+        self._merken(tool_id)
         view = self.views.get(tool_id)
         spec = next(t for t in self.tool_specs if t.id == tool_id)
         if view is None:

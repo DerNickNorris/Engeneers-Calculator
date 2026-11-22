@@ -546,3 +546,36 @@ def test_firmenvorlage_einstellungen(window, tmp_path, monkeypatch):
     finally:
         briefkopf.setzen(None)
         window.ctx.settings.remove("report/vorlage")
+
+
+def test_favoriten_und_zuletzt(window):
+    window.settings.setValue("ui/favoriten", [])
+    window.settings.setValue("ui/zuletzt", [])
+    window._rebuild_tree()
+
+    def abschnitt(titel):
+        for i in range(window.tree.topLevelItemCount()):
+            it = window.tree.topLevelItem(i)
+            if it.text(0) == titel:
+                return [it.child(j).data(0, Qt.UserRole) for j in range(it.childCount())]
+        return None
+
+    assert abschnitt("★ Favoriten") is None and abschnitt("Zuletzt verwendet") is None
+    view = window.open_calculator("fl.druckverlust_rohr")
+    window.open_tool("tool.medien")
+    QApplication.processEvents()
+    assert abschnitt("Zuletzt verwendet")[:2] == ["tool.medien", "fl.druckverlust_rohr"]
+
+    assert window.favorit_umschalten("fl.druckverlust_rohr") is True
+    QApplication.processEvents()
+    assert abschnitt("★ Favoriten") == ["fl.druckverlust_rohr"] and view.btn_fav.text() == "★"
+    view.btn_fav.click()
+    QApplication.processEvents()
+    assert abschnitt("★ Favoriten") is None and view.btn_fav.text() == "☆"
+
+    for cls in window.calc_classes[:12]:
+        window.open_calculator(cls.id)
+    QApplication.processEvents()
+    assert len(abschnitt("Zuletzt verwendet")) == window.MAX_ZULETZT
+    window.settings.setValue("ui/zuletzt", [])
+    window._rebuild_tree()

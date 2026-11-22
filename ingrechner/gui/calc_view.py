@@ -29,6 +29,7 @@ class CalculatorView(QWidget):
     link_requested = Signal(str)     # Feld soll mit einer anderen Position verknüpft werden
     unlink_requested = Signal(str)   # Verknüpfung des Felds lösen
     source_requested = Signal(str)   # Quellposition des Felds öffnen
+    favorit_requested = Signal()     # Stern in der Kopfzeile angeklickt
 
     def __init__(self, calc: Calculator, parent: QWidget | None = None, context=None) -> None:
         super().__init__(parent)
@@ -63,6 +64,13 @@ class CalculatorView(QWidget):
         head.addSpacing(10)
         head.addWidget(norm, 0, Qt.AlignVCenter)
         head.addStretch(1)
+        self.btn_fav = QToolButton()
+        self.btn_fav.setObjectName("FavButton")
+        self.btn_fav.setAutoRaise(True)
+        self.btn_fav.setCursor(Qt.PointingHandCursor)
+        self.btn_fav.clicked.connect(self.favorit_requested.emit)
+        self.set_favorit(False)
+        head.addWidget(self.btn_fav, 0, Qt.AlignVCenter)
         outer.addLayout(head)
         desc = QLabel(self.calc.description)
         desc.setObjectName("CalcDesc")
@@ -290,6 +298,13 @@ class CalculatorView(QWidget):
         self._editors[f.key] = editor
         self._errors[f.key] = err
         self._rows[f.key] = [label, holder]
+
+    def set_favorit(self, an: bool) -> None:
+        self.btn_fav.setText("★" if an else "☆")
+        self.btn_fav.setProperty("active", an)
+        self.btn_fav.style().unpolish(self.btn_fav)
+        self.btn_fav.style().polish(self.btn_fav)
+        self.btn_fav.setToolTip("Aus Favoriten entfernen" if an else "Zu Favoriten hinzufügen (nur auf diesem PC)")
 
     # ------------------------------------------------------ Verknüpfung
     def _link_button(self, key: str) -> QToolButton:
