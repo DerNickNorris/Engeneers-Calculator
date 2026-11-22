@@ -472,4 +472,6 @@ class CalculatorView(QWidget):
         apply_style(self.figure)
         has_plot = self.calc.plot(self.figure, self.calc.defaults() | raw, res)
         self.canvas.draw_idle()
+        if not has_plot and self.tabs.currentIndex() == self._plot_index:
+            self.tabs.setCurrentIndex(0)          # nicht auf einem ausgeblendeten Reiter stehen bleiben
         self.tabs.setTabVisible(self._plot_index, has_plot)
