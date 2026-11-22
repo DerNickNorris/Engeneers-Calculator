@@ -18,6 +18,15 @@ from ingrechner.core.audio import pcm_to_float, resample
 
 from .theme import C
 
+SILENCE_PEAK = 0.002   # Spitzenpegel darunter = praktisch Stille (Mikrofon gesperrt/stumm)
+NO_SIGNAL_HELP = (
+    "Das Mikrofon hat nur Stille geliefert. Häufige Ursachen unter Windows:\n\n"
+    "1. Datenschutz: Einstellungen › Datenschutz und Sicherheit › Mikrofon › "
+    "„Mikrofonzugriff“ und „Desktop-Apps den Zugriff auf das Mikrofon erlauben“ einschalten.\n"
+    "2. Falsches Gerät: Einstellungen › System › Sound › Eingabe – das richtige Mikrofon als "
+    "Standard wählen und den Pegel beim Sprechen prüfen.\n"
+    "3. Mikrofon stummgeschaltet (Taste am Headset/Laptop) oder Lautstärke auf 0.\n\n"
+    "Danach die App neu starten und erneut diktieren.")
 AUDIO_FILTER = "Audiodateien (*.wav *.mp3 *.m4a *.ogg *.flac *.aac *.wma *.opus);;Alle Dateien (*)"
 
 
@@ -262,8 +271,18 @@ class DictateButton(QToolButton):
         except speech.SpeechError as exc:
             QMessageBox.warning(self, "Diktat", str(exc))
             return
+        except Exception as exc:  # noqa: BLE001 - z. B. fehlende Multimedia-Bibliotheken
+            from .errors import format_error, write_log
+
+            import sys
+
+            path = write_log(format_error(*sys.exc_info()))
+            QMessageBox.critical(self, "Diktat", "Die Mikrofonaufnahme konnte nicht gestartet werden:\n"
+                                 f"{type(exc).__name__}: {exc}" + (f"\n\nDetails: {path}" if path else ""))
+            return
         svc.active_button = self
         svc.recorder.level.connect(self._set_level)
+        self._level_connected = True
         self.state = "recording"
         self.setStyleSheet(f"QToolButton {{ color: white; background: {C['error']}; border-radius: 5px; "
                            f"padding: 4px 8px; font-weight: 600; }}")
@@ -275,12 +294,15 @@ class DictateButton(QToolButton):
             return
         svc = self.ctx.speech
         self._timer.stop()
-        try:
+        if getattr(self, "_level_connected", False):
             svc.recorder.level.disconnect(self._set_level)
-        except (RuntimeError, TypeError):
-            pass
+            self._level_connected = False
         audio = svc.recorder.stop()
         svc.active_button = None
+        if audio.size and float(np.abs(audio).max()) < SILENCE_PEAK:
+            self._idle_look()
+            QMessageBox.warning(self, "Diktat – kein Signal", NO_SIGNAL_HELP)
+            return
         self._run(audio)
 
     def transcribe_file(self) -> None:

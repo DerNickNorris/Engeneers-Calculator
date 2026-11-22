@@ -8,7 +8,7 @@ Systemskizze, Diagramm, PDF-Rechnungsnachweis und Excel/CSV-Export.
 > sind vor Verwendung in Nachweisen von fachkundiger Stelle gegen die jeweilige
 > Originalnorm zu prüfen.
 
-## Stand: Version 0.5.0
+## Stand: Version 0.5.1
 
 **Rechner (Phase 1 und 4)**
 
@@ -124,6 +124,9 @@ und starten.
   (abschaltbar unter *Extras › Einstellungen › Allgemein*; dabei wird nur die öffentliche
   GitHub-Seite abgefragt, es werden keine Daten übertragen). Manuell: *Hilfe › Nach Updates suchen*.
 - **Deinstallation:** Windows-Einstellungen › Apps › „Ingenieurs-Rechner“.
+- **Fehler:** Unerwartete Fehler erscheinen in einem Dialog und werden in
+  `%APPDATA%\Ingenieurs-Rechner\Ingenieurs-Rechner\fehlerprotokoll.log` protokolliert
+  (*Hilfe › Fehlerprotokoll öffnen*) – diese Datei bei Problemen mitschicken.
 - Stille Installation für die IT/Softwareverteilung:
   `Ingenieurs-Rechner-Setup-x.y.z.exe /VERYSILENT /SUPPRESSMSGBOXES /ALLUSERS`
 - Das Setup ist nicht signiert: Windows SmartScreen zeigt beim ersten Start eine Warnung

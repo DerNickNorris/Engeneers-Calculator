@@ -23,14 +23,15 @@ a = Analysis(
     excludes=[
         "tkinter", "lxml", "pytest", "_pytest", "pandas", "scipy", "IPython", "pint.testsuite",
         "PySide6.QtWebEngineCore", "PySide6.QtWebEngineWidgets", "PySide6.QtWebEngineQuick",
-        "PySide6.Qt3DCore", "PySide6.QtQuick", "PySide6.QtQml",
+        "PySide6.Qt3DCore",
         "PySide6.QtCharts", "PySide6.QtDataVisualization", "PySide6.QtGraphs",
     ],
     noarchive=False,
 )
-# Nicht benötigte Qt-Teile (QML/Quick, PDF-Viewer, Sprachdateien außer de/en) entfernen
-DROP = ("Qt6Qml", "Qt6Quick", "Qt6Pdf", "Qt6VirtualKeyboard", "Qt6OpenGL", "Qt6Network",
-        "qpdf", "qtvirtualkeyboard", "qmltooling")
+# Nicht benötigte Qt-Teile (QML/Quick, PDF-Viewer, Sprachdateien außer de/en) entfernen.
+# ACHTUNG: Qt6Network, Qt6OpenGL, Qt6Qml und Qt6Quick NICHT entfernen – Qt Multimedia und sein
+# Plugin (Mikrofon für das Diktat) benötigen sie. Der Selbsttest (--selftest) prüft das.
+DROP = ("Qt6Pdf", "Qt6VirtualKeyboard", "qpdf", "qtvirtualkeyboard", "qmltooling")
 
 
 def keep(entry) -> bool:

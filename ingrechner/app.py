@@ -28,6 +28,9 @@ def main(argv: list[str] | None = None) -> int:
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("ingrechner.desktop")
 
     app = QApplication(argv)
+    from ingrechner.gui import errors
+
+    errors.install()   # Fehler sichtbar machen (die .exe hat kein Konsolenfenster)
     app.setWindowIcon(QIcon(str(Path(__file__).parent / "resources" / "icon.png")))
     app.setApplicationName(APP_NAME)
     app.setOrganizationName("Ingenieurs-Rechner")
@@ -39,6 +42,36 @@ def main(argv: list[str] | None = None) -> int:
     if files:
         win.open_file(files[0])
     return app.exec()
+
+
+def _multimedia_ok(lines: list[str]) -> bool:
+    """Lädt Qt Multimedia und dessen Plugins wie beim Diktat.
+
+    Fehlende Bibliotheken im Build fallen sonst erst beim Klick auf „Diktat“ auf.
+    """
+    try:
+        from pathlib import Path
+
+        from PySide6.QtCore import QCoreApplication, QLibraryInfo, QPluginLoader
+        from PySide6.QtMultimedia import QAudioFormat, QMediaDevices
+
+        app = QCoreApplication.instance() or QCoreApplication([])  # noqa: F841 - für QMediaDevices
+        plugin_dir = Path(QLibraryInfo.path(QLibraryInfo.LibraryPath.PluginsPath)) / "multimedia"
+        plugins = sorted(p for p in plugin_dir.glob("*") if p.suffix.lower() in (".dll", ".so", ".dylib"))
+        loaded = []
+        for plugin in plugins:
+            loader = QPluginLoader(str(plugin))
+            if loader.load():
+                loaded.append(plugin.name)
+            else:
+                lines.append(f"    Plugin {plugin.name} nicht ladbar: {loader.errorString()}")
+        n = len(QMediaDevices.audioInputs())
+        QAudioFormat()
+        lines.append(f"    Multimedia-Plugins geladen: {', '.join(loaded) or 'keine'}; Mikrofone gefunden: {n}")
+        return bool(loaded) and len(loaded) == len(plugins)
+    except Exception as exc:  # noqa: BLE001
+        lines.append(f"    Qt Multimedia nicht ladbar: {exc}")
+        return False
 
 
 def selftest() -> int:
@@ -73,6 +106,7 @@ def selftest() -> int:
 
     checks["Protokollvorlagen"] = bool(Protocol.new(TemplateLibrary(None).get("b:baubesprechung")).values)
     checks["Spracherkennung installiert"] = speech.available()
+    checks["Mikrofon-Modul (Qt Multimedia)"] = _multimedia_ok(lines)
     model = next((a.split("=", 1)[1] for a in sys.argv if a.startswith("--selftest-model=")), None)
     if model:  # optional: echte Erkennung mit Testaudio (--selftest-audio=...)
         audio = next((a.split("=", 1)[1] for a in sys.argv if a.startswith("--selftest-audio=")), None)
