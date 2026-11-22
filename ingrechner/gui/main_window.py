@@ -206,6 +206,7 @@ class MainWindow(QMainWindow):
         x.addAction(act("Einstellungen …", self.edit_settings, QKeySequence.Preferences))
         h = self.menuBar().addMenu("&Hilfe")
         h.addAction(act("Nach Updates suchen …", self.check_updates_now))
+        h.addAction(act("Fehlerprotokoll öffnen …", self.open_error_log))
         h.addAction(act("Über …", self.about))
 
         tb = QToolBar("Werkzeugleiste")
@@ -465,6 +466,18 @@ class MainWindow(QMainWindow):
             self.open_tool("proto.editor").open(path)
         elif path.lower().endswith(FILE_SUFFIX):
             self.open_project(path)
+
+    def open_error_log(self) -> None:
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+
+        from .errors import log_path
+
+        path = log_path()
+        if path.exists():
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
+        else:
+            QMessageBox.information(self, "Fehlerprotokoll", f"Bisher wurden keine Fehler protokolliert.\n({path})")
 
     def check_updates_now(self) -> None:
         self._manual_update_check = True

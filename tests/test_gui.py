@@ -264,3 +264,63 @@ def test_update_hinweis(window):
     assert window.update_badge is None                         # gleiche Version -> kein Hinweis
     window._update_result(ReleaseInfo("99.0.0", "https://example.org", None), "")
     assert window.update_badge is not None and "99.0.0" in window.update_badge.text()
+
+
+# ------------------------------------------------------------- Fehlerbehandlung
+def test_fehlerprotokoll(tmp_path):
+    from ingrechner.gui.errors import handle_exception
+
+    try:
+        raise ImportError("DLL load failed: Qt6Network")
+    except ImportError:
+        import sys
+
+        text = handle_exception(*sys.exc_info(), show_dialog=False, path=tmp_path / "f.log")
+    assert "Qt6Network" in text
+    assert "Qt6Network" in (tmp_path / "f.log").read_text(encoding="utf-8")
+
+
+def test_diktat_meldet_unerwartete_fehler(window, monkeypatch, tmp_path):
+    """Fehler beim Start der Aufnahme dürfen nicht still verschwinden (Fehlerbild aus dem Praxistest)."""
+    from PySide6.QtWidgets import QMessageBox, QPlainTextEdit
+
+    from ingrechner.gui import errors
+    from ingrechner.gui.dictation import DictateButton
+
+    shown = []
+    monkeypatch.setattr(QMessageBox, "critical", staticmethod(lambda *a, **k: shown.append(a[2])))
+    monkeypatch.setattr(errors, "log_path", lambda: tmp_path / "f.log")
+    btn = DictateButton(window.ctx, QPlainTextEdit())
+    monkeypatch.setattr(btn, "_ensure_ready", lambda: True)
+
+    def boom():
+        raise ImportError("DLL load failed while importing QtMultimedia")
+
+    monkeypatch.setattr(window.ctx.speech.recorder, "start", boom)
+    btn.start()
+    assert shown and "QtMultimedia" in shown[0]
+    assert btn.state == "idle"
+
+
+def test_selbsttest_prueft_multimedia():
+    from ingrechner.app import _multimedia_ok
+
+    lines = []
+    assert _multimedia_ok(lines)       # in der Entwicklungsumgebung müssen die Plugins laden
+    assert any("Multimedia-Plugins geladen" in ln for ln in lines)
+
+
+def test_diktat_erkennt_stummes_mikrofon(window, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox, QPlainTextEdit
+
+    from ingrechner.gui.dictation import DictateButton
+
+    warned = []
+    monkeypatch.setattr(QMessageBox, "warning", staticmethod(lambda *a, **k: warned.append(a[2])))
+    btn = DictateButton(window.ctx, QPlainTextEdit())
+    btn.state = "recording"
+    monkeypatch.setattr(window.ctx.speech.recorder, "stop", lambda: np.zeros(16000, np.float32))
+    ran = []
+    monkeypatch.setattr(btn, "_run", lambda audio: ran.append(audio))
+    btn.stop()
+    assert warned and "Datenschutz" in warned[0] and not ran and btn.state == "idle"
