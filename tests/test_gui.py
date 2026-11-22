@@ -2,6 +2,8 @@
 
 import os
 
+import numpy as np
+
 import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -16,11 +18,12 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 
 @pytest.fixture(scope="module")
 def window(tmp_path_factory):
-    from PySide6.QtCore import QSettings
+    from PySide6.QtCore import QSettings, QStandardPaths
 
     from ingrechner.gui.main_window import MainWindow
     from ingrechner.gui.theme import apply_theme
 
+    QStandardPaths.setTestModeEnabled(True)   # keine echten AppData-Dateien (z. B. Wiederherstellung)
     QSettings.setPath(QSettings.NativeFormat, QSettings.UserScope, str(tmp_path_factory.mktemp("cfg")))
     app = QApplication.instance() or QApplication([])
     apply_theme(app)
@@ -28,6 +31,9 @@ def window(tmp_path_factory):
     w.show()
     yield w
     w.project.dirty = False
+    for view in w.views.values():   # keine Rückfragen beim Schließen
+        if hasattr(view, "dirty"):
+            view.dirty = False
     w.close()
 
 
@@ -157,3 +163,83 @@ def test_plotter(window, tmp_path):
     view.f_txt[0].setText("foo(x)")
     view.draw()
     assert view.f_err[0].isVisibleTo(view)
+
+
+# ------------------------------------------------------------- Phase 3
+def test_protokoll_ansicht(window, tmp_path):
+    from ingrechner.core.protocols import Protocol
+    from ingrechner.gui.protocols.protocol_view import ParticipantsBlock, TasksBlock
+
+    window.ctx.template_path = tmp_path / "vorlagen.json"
+    view = window.open_tool("proto.editor")
+    proto = Protocol.new(window.ctx.templates.get("b:baubesprechung"), "7")
+    view.load_protocol(proto, dirty=True)
+    people = next(w for w in view.widgets.values() if isinstance(w, ParticipantsBlock))
+    r = people.add_row({"firma": "Statik"})
+    people.table.item(r, 0).setText("Erika Beispiel")      # Eingabe des Namens schlägt Kürzel vor
+    assert people.table.item(r, 2).text() == "EB"
+    tasks = next(w for w in view.widgets.values() if isinstance(w, TasksBlock))
+    tasks._dictated("Bewehrungsplan prüfen")               # wie nach einem Diktat
+    view.widgets["top"].tops[0].text.setPlainText("Alle anwesend.")
+    view.header.editors["projekt"].setText("Halle 3")
+    assert view._save_to(tmp_path / "p.irpk")
+    saved = Protocol.load(tmp_path / "p.irpk")
+    assert saved.value("projekt") == "Halle 3"
+    assert saved.value("aufgaben")[0]["aufgabe"] == "Bewehrungsplan prüfen"
+    assert saved.value("aufgaben")[0]["nr"] == "7.1"
+    assert saved.value("teilnehmer")[0]["kuerzel"] == "EB"
+    assert saved.value("top")[0]["text"] == "Alle anwesend."
+    view.follow_up()
+    assert view.proto.nummer == "8" and view.dirty
+    assert [t["aufgabe"] for t in view.proto.value("aufgaben")] == ["Bewehrungsplan prüfen"]
+    view.dirty = False
+
+
+def test_diktat_text_einfuegen(window):
+    from PySide6.QtWidgets import QLineEdit, QPlainTextEdit
+
+    from ingrechner.gui.dictation import insert_text
+
+    pe = QPlainTextEdit()
+    pe.setPlainText("Erster Satz.")
+    pe.moveCursor(pe.textCursor().MoveOperation.End)
+    insert_text(pe, "Zweiter Satz.")
+    assert pe.toPlainText() == "Erster Satz. Zweiter Satz."
+    le = QLineEdit()
+    insert_text(le, "Hallo")
+    assert le.text() == "Hallo"
+
+
+def test_qt_audioformate():
+    from PySide6.QtMultimedia import QAudioFormat
+
+    from ingrechner.gui.dictation import qt_samples_to_float
+
+    i16 = (np.array([0, 16384, -32768], dtype="<i2")).tobytes()
+    assert list(qt_samples_to_float(i16, QAudioFormat.Int16, 1)) == [0.0, 0.5, -1.0]
+    f32 = np.array([0.25, 0.75, -0.5, -0.5], dtype="<f4").tobytes()
+    assert list(qt_samples_to_float(f32, QAudioFormat.Float, 2)) == [0.5, -0.5]
+
+
+def test_diktat_ohne_modell_meldet_status(window, tmp_path):
+    window.ctx.speech_model_path = tmp_path
+    ok, msg = window.ctx.speech.status()
+    assert not ok and ("Sprachmodell" in msg or "nicht installiert" in msg)
+
+
+def test_vorlagen_editor(window, tmp_path):
+    window.ctx.template_path = tmp_path / "v.json"
+    view = window.open_tool("proto.templates")
+    view.refresh()
+    assert not view.btn_save.isEnabled()                    # mitgeliefert = schreibgeschützt
+    view.duplicate()
+    assert view.current is not None and not view.current.builtin and view.btn_save.isEnabled()
+    n = len(view.current.blocks)
+    view.add_block("text")
+    view.b_titel.setText("Bemerkungen")
+    view._block_changed()
+    view.move_block(-1)
+    assert view.dirty and len(view.current.blocks) == n + 1
+    assert view.save()
+    reloaded = window.ctx.templates.get(view.current.id)
+    assert "Bemerkungen" in [b.titel for b in reloaded.blocks]

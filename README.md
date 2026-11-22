@@ -8,7 +8,7 @@ Systemskizze, Diagramm, PDF-Rechnungsnachweis und Excel/CSV-Export.
 > sind vor Verwendung in Nachweisen von fachkundiger Stelle gegen die jeweilige
 > Originalnorm zu prüfen.
 
-## Stand: Phase 2 (Version 0.2.0)
+## Stand: Phase 3 (Version 0.3.0)
 
 **Rechner (Phase 1)**
 
@@ -46,8 +46,37 @@ die denselben Pfad eintragen, teilen sich die eigenen Werkstoffe. Vor jeder
 > Norm für den angegebenen Lieferzustand bzw. typische physikalische Werte).
 > Vor Verwendung gegen Norm oder Werkstoffzeugnis prüfen.
 
-**Geplant:** Phase 3 Besprechungsprotokolle mit Vorlagen-Editor und
-Offline-Diktat (Whisper) · Phase 4 weitere Fachrechner.
+**Besprechungsprotokolle (Phase 3)**
+
+- **Vorlagen aus Bausteinen:** Kopffelder (Text, Datum, Uhrzeit), Teilnehmerliste,
+  Tagesordnung mit TOPs, Textabschnitte, Aufgaben/Beschlüsse. Drei Vorlagen werden
+  mitgeliefert (Baubesprechung, Jour fixe, Gesprächsnotiz); eigene Vorlagen entstehen
+  im **Vorlagen-Editor** und liegen in einer Team-Datei (*Extras › Einstellungen › Team-Dateien*).
+- **Diktat:** „🎤 Diktat“ an jedem TOP und Textabschnitt, „Aufgabe diktieren“ in der
+  Aufgabentabelle; über den Pfeil daneben lassen sich auch Audiodateien (wav, mp3, m4a …)
+  transkribieren. Die Erkennung (Whisper über faster-whisper) läuft **offline** auf dem PC.
+  Eine Fachbegriffsliste in den Einstellungen verbessert die Schreibweise von Fachwörtern.
+- **Folgeprotokoll:** übernimmt Kopfdaten, Teilnehmer und offene Aufgaben/Festlegungen
+  (mit Herkunft „aus Prot. Nr.“), die Nummer zählt automatisch weiter (z. B. BB-07 → BB-08).
+- Aufgaben werden automatisch nummeriert (`<Protokoll-Nr>.<lfd>`), Kürzel aus Namen vorgeschlagen.
+- Ausgabe als **PDF**; gespeichert wird als `.irpk` (JSON). Ungespeicherte Protokolle werden
+  alle 30 s gesichert und nach einem Absturz zur Wiederherstellung angeboten.
+
+**Sprachmodell einrichten** (*Extras › Einstellungen › Diktat*):
+
+| Modell          | Größe     | Hinweis |
+|-----------------|-----------|---------|
+| Base            | ≈ 150 MB  | sehr schnell, kurze Diktate |
+| Small           | ≈ 480 MB  | Empfehlung für Büro-PCs |
+| Medium          | ≈ 1,5 GB  | genauer, langsamer |
+| Large v3 Turbo  | ≈ 1,6 GB  | beste Erkennung, leistungsstarke PCs |
+
+„Herunterladen“ lädt das Modell einmalig von Hugging Face. **PCs ohne Internet:** Die IT
+lädt das Modell einmal herunter (Ordner mit `model.bin`, `config.json`, `tokenizer.json`,
+`vocabulary.*`) und legt ihn z. B. auf ein Netzlaufwerk; in den Einstellungen dann
+„Ordner wählen“. Audiodaten verlassen den PC nie.
+
+**Geplant:** Phase 4 – weitere Fachrechner.
 
 ## Starten (Entwicklung)
 
@@ -64,6 +93,10 @@ python run.py
 python -m pytest -q
 ```
 
+Mit einem heruntergeladenen Whisper-Modell und `espeak-ng` läuft zusätzlich ein
+End-to-End-Test der Spracherkennung:
+`INGRECHNER_TEST_MODEL=<Modellordner> python -m pytest -q`
+
 Die Tests prüfen die Formeln gegen unabhängige Referenzwerte (Handrechnung,
 Moody-Diagramm, Tabellenwerte), außerdem alle Auswahlkombinationen, Projektdatei,
 Exporte, PDF-Erzeugung und einen Rauchtest der Oberfläche (headless).
@@ -78,6 +111,9 @@ Alternativ automatisch über GitHub Actions (`.github/workflows/build-windows.ym
 Tests → EXE → Selbsttest der EXE → Download als Artefakt.
 
 Selbsttest einer fertigen EXE: `Ingenieurs-Rechner.exe --selftest --selftest-out=st.txt`
+(optional mit echter Spracherkennung: `--selftest-model=<Modellordner> --selftest-audio=<datei.wav>`).
+Durch die Spracherkennung (CTranslate2, ONNX Runtime, FFmpeg) ist der Programmordner
+mehrere hundert MB groß; das Sprachmodell selbst wird nicht mitgeliefert.
 
 ## Projektstruktur
 
@@ -94,7 +130,9 @@ ingrechner/
   calculators/     ein Unterordner je Fachgebiet, eine Datei je Rechner
   gui/             PySide6-Oberfläche (generisch, kein Code je Rechner nötig)
     tools/         Werkzeuge: Einheitenumrechner, Rechner, Materialien, Plotter
-  resources/       Icon, materials.json (mitgelieferte Werkstoffe)
+    protocols/     Protokollansicht und Vorlagen-Editor
+    dictation.py   Mikrofonaufnahme und Diktat-Schaltfläche
+  resources/       Icon, materials.json, protocol_templates.json
 tests/
 ```
 
