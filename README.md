@@ -8,7 +8,7 @@ Systemskizze, Diagramm, PDF-Rechnungsnachweis und Excel/CSV-Export.
 > sind vor Verwendung in Nachweisen von fachkundiger Stelle gegen die jeweilige
 > Originalnorm zu prüfen.
 
-## Stand: Version 0.7.0
+## Stand: Version 0.8.0
 
 **Rechner (Phase 1 und 4)**
 
@@ -44,7 +44,7 @@ Projektdatei `.irp` · PDF-Bericht (Strg+P) · Excel-Export (Strg+E) / CSV.
   und den vollständigen Nachweisen; Positionen und Bestandteile sind wählbar.
 - Projektdateien älterer Versionen werden automatisch übernommen (je Rechner eine Position).
 
-**Heizung / Wärme (Version 0.7)**
+**Heizung / Wärme (Version 0.7–0.8)**
 
 | Rechner | Inhalt |
 |---|---|
@@ -52,6 +52,10 @@ Projektdatei `.irp` · PDF-Bericht (Strg+P) · Excel-Export (Strg+E) / CSV.
 | Wärmetauscher-Auslegung | Energiebilanz beider Seiten, mittlere log. Temperaturdifferenz, erforderliche Fläche A = Q̇/(k·ΔT_m), Gegen-/Gleichstrom, Temperaturverlauf, Prüfung auf Temperaturkreuzung |
 | Wärmeverlust Rohrleitung (Luft) | DIN EN ISO 12241 / VDI 2055: Konvektion (Gebäude oder Wind) + Strahlung, Oberflächentemperatur, Vergleich ungedämmt, Verlust über Dämmdicke |
 | Temperaturabfall in der Leitung | Austrittstemperatur, Wärmeverlust, Verweilzeit einer durchströmten Leitung |
+| Wärmeverlust erdverlegte Leitung | DIN EN 13941: Einzelrohr oder Vor-/Rücklauf, KMR nach EN 253 (DN 20–200, Serie 1–3) oder eigene Dämmung, Erdreich- und Kopplungswiderstand, Jahreswärmeverlust, Vergleich der Dämmserien |
+| Heizkörperleistung | DIN EN 442: Umrechnung der Normleistung (75/65/20) über die log. Übertemperatur, erforderliche Normleistung für einen Wärmebedarf, Heizwasserstrom |
+| Pufferspeicher | nutzbare Wärmemenge, Lade-/Entladedauer oder erforderliches Volumen für eine Mindestlaufzeit |
+| Mischtemperatur | Mischung von bis zu drei Strömen oder Rücklaufbeimischung (Mischventil) für eine Ziel-Vorlauftemperatur |
 
 Temperaturabhängige Stoffwerte für Wasser (0–150 °C) und Luft; Rohrtabellen Stahl (EN 10255/10220)
 und Kupfer (EN 1057). **Rohrwerkstoff und Dämmstoff** sind auswählbar – die Werte kommen aus der

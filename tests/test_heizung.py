@@ -174,3 +174,119 @@ def test_fernwaerme_werkstoffe_in_datenbank():
     assert {"P235GH", "P235TR1", "PE-Xa", "PE-HD Mantelrohr", "Cu-DHP R250"} <= rohr
     pur = next(m for m in lib.builtin if m.id == "b:pur-en253")
     assert pur.lam <= 0.029 and pur.gruppe == "Dämmstoff"
+
+
+# ================================================================ Teil 2
+from ingrechner.calculators.heizung.heizkoerper import DT_NORM, Heizkoerper, dt_log  # noqa: E402
+from ingrechner.calculators.heizung.mischtemperatur import Mischtemperatur  # noqa: E402
+from ingrechner.calculators.heizung.pufferspeicher import Pufferspeicher  # noqa: E402
+from ingrechner.calculators.heizung.rohrverlust_erde import (RohrverlustErde, r_erdreich,  # noqa: E402
+                                                             r_gegenseitig, verlust_paar)
+
+
+class TestErdreich:
+    def test_erdreichwiderstand(self):
+        lam, H, D = 1.0, 0.8, 0.14
+        h = H + 0.0685 * lam
+        assert r_erdreich(H, D, lam) == approx(math.acosh(2 * h / D) / (2 * math.pi * lam))
+        assert r_gegenseitig(H, 0.3, lam) == approx(math.log(1 + (2 * h / 0.3) ** 2) / (4 * math.pi * lam))
+
+    def test_symmetrie_gleiche_temperaturen(self):
+        """Bei gleicher Vor- und Rücklauftemperatur: q = Δθ / (R + R_h) für beide Rohre."""
+        q1, q2 = verlust_paar(70, 70, 10, 5.0, 0.3)
+        assert q1 == approx(q2) and q1 == approx(60 / 5.3)
+
+    def test_kopplung_verschwindet_bei_grossem_abstand(self):
+        einzel = RohrverlustErde().run({"anordnung": "einzel"}).value("qges")
+        weit = RohrverlustErde().run({"abstand": 50}).value("q1")
+        assert weit == approx(einzel, rel=0.02)
+
+    def test_dicke_serie_weniger_verlust(self):
+        q = [RohrverlustErde().run({"serie": s}).value("qges") for s in ("1", "2", "3")]
+        assert q[0] > q[1] > q[2] > 0
+
+    def test_plausibel_kmr(self):
+        """DN 50 Serie 2, 80/50 °C, θ_E = 10 °C, H = 0,8 m: Trassenverlust im Bereich 15–25 W/m."""
+        assert 15 < RohrverlustErde().run({}).value("qges") < 25
+
+    def test_jahresverlust(self):
+        r = RohrverlustErde().run({"L": 250, "stunden": 8760})
+        assert r.value("Qa") == approx(r.value("qges") * 250 * 8760 / 1000)
+
+    def test_ungueltige_geometrie(self):
+        assert not RohrverlustErde().run({"H": 0.05}).ok
+        # Achsabstand ergibt sich aus Manteldurchmesser + lichtem Abstand – auch für DN 200
+        assert RohrverlustErde().run({"kmr_dn": "DN 200", "H": 1.2}).ok
+
+    def test_enger_abstand_mehr_kopplung(self):
+        eng = RohrverlustErde().run({"abstand": 0.05}).value("q2")
+        weit = RohrverlustErde().run({"abstand": 1.0}).value("q2")
+        assert eng < weit          # Rücklauf wird vom nahen Vorlauf stärker „mitgeheizt"
+
+    def test_eigene_daemmung(self):
+        a = RohrverlustErde().run({"bauart": "frei", "daemm": 30}).value("qges")
+        b = RohrverlustErde().run({"bauart": "frei", "daemm": 80}).value("qges")
+        assert a > b
+
+
+class TestHeizkoerper:
+    def test_norm(self):
+        assert DT_NORM == approx(10 / math.log(55 / 45))
+        assert Heizkoerper().run({"tv": 75, "tr": 65, "ti": 20}).value("phi") == approx(1500)
+
+    @pytest.mark.parametrize("tv, tr, faktor", [(55, 45, 0.511), (70, 55, 0.80), (45, 35, 0.297)])
+    def test_umrechnung(self, tv, tr, faktor):
+        """Faktoren für n = 1,3 (Umrechnungstabellen der Hersteller)."""
+        f = Heizkoerper().run({"tv": tv, "tr": tr, "ti": 20, "n": 1.3}).value("f") / 100
+        assert f == approx(faktor, abs=0.01)
+        assert f == approx((dt_log(tv, tr, 20) / DT_NORM) ** 1.3)
+
+    def test_erforderliche_normleistung(self):
+        r = Heizkoerper().run({"Qb": 1000})
+        assert r.value("phiN_erf") == approx(1000 / (r.value("f") / 100))
+        assert warned(r, "deckt nur")
+
+    def test_ungueltig(self):
+        assert not Heizkoerper().run({"tr": 18, "ti": 20}).ok
+        assert not Heizkoerper().run({"tv": 40, "tr": 45}).ok
+
+
+class TestPuffer:
+    def test_inhalt(self):
+        r = Pufferspeicher().run({"V": 1000, "to": 70, "tu": 30, "P": 10, "Pl": 20})
+        sw = stoffwerte("wasser", 50)
+        E = sw.rho * sw.cp * 40 / 3600
+        assert r.value("E") == approx(E)
+        assert r.value("tE") == approx(E / 10 * 60) and r.value("tL") == approx(E / 20 * 60)
+
+    def test_volumen_rueckrechnung(self):
+        v = Pufferspeicher().run({"modus": "volumen", "Pl": 12, "t": 30, "to": 70, "tu": 35}).value("V")
+        e = Pufferspeicher().run({"V": v, "to": 70, "tu": 35}).value("E")
+        assert e == approx(12 * 0.5)
+
+    def test_abnahme_beim_laden(self):
+        a = Pufferspeicher().run({"modus": "volumen", "Pl": 12, "Pv": 0}).value("V")
+        b = Pufferspeicher().run({"modus": "volumen", "Pl": 12, "Pv": 6}).value("V")
+        assert b == approx(a / 2)
+
+
+class TestMischung:
+    def test_gleiche_temperatur(self):
+        assert Mischtemperatur().run({"t1": 50, "t2": 50}).value("tm") == approx(50)
+
+    def test_energiebilanz(self):
+        r = Mischtemperatur().run({"V1": 1.0, "t1": 70, "V2": 0.5, "t2": 30})
+        s1, s2 = stoffwerte("wasser", 70), stoffwerte("wasser", 30)
+        m1, m2 = s1.rho, 0.5 * s2.rho
+        assert r.value("tm") == approx((m1 * s1.cp * 70 + m2 * s2.cp * 30) / (m1 * s1.cp + m2 * s2.cp))
+        assert r.value("m") == approx(m1 + m2)
+
+    def test_drei_stroeme(self):
+        r = Mischtemperatur().run({"V3": 1.0, "t3": 50})
+        assert 30 < r.value("tm") < 70
+
+    def test_beimischung(self):
+        r = Mischtemperatur().run({"modus": "beimischung", "tvl": 75, "trl": 35, "tz": 45, "Vh": 1.2})
+        assert r.value("x") == approx(25, abs=0.3)
+        assert r.value("Ve") + r.value("Vb") == approx(1.2, rel=0.01)
+        assert not Mischtemperatur().run({"modus": "beimischung", "tz": 80}).ok

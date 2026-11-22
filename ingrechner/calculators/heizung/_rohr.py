@@ -10,19 +10,23 @@ from ingrechner.core.svg import INK, MUTED, Svg
 FREI = {"rohr": ["frei"]}
 
 
-def rohr_felder(default_rohr: str = "st:DN 50", daemm: float = 50) -> list:
+def rohr_felder(default_rohr: str = "st:DN 50", daemm: float = 50, vis: dict | None = None,
+                default_daemmstoff: str = "b:mw-rohrschale") -> list:
+    """Rohr-, Werkstoff- und Dämmfelder. ``vis`` blendet Rohr/Werkstoff/Dämmdicke nur unter dieser
+    Bedingung ein (z. B. {"bauart": ["frei"]})."""
+    v = dict(vis or {})
     return [
-        ChoiceField("rohr", "Rohr", rohr_optionen(), default_rohr),
-        NumberField("da", "Außendurchmesser Rohr", "d_a", "mm", 60.3, min=0, decimals=1, visible_if=FREI),
-        NumberField("s", "Wanddicke Rohr", "s", "mm", 3.6, min=0, decimals=2, visible_if=FREI),
-        ChoiceField("werkstoff", "Rohrwerkstoff", werkstoff_optionen(), "auto",
+        ChoiceField("rohr", "Rohr", rohr_optionen(), default_rohr, visible_if=v or None),
+        NumberField("da", "Außendurchmesser Rohr", "d_a", "mm", 60.3, min=0, decimals=1, visible_if={**v, **FREI}),
+        NumberField("s", "Wanddicke Rohr", "s", "mm", 3.6, min=0, decimals=2, visible_if={**v, **FREI}),
+        ChoiceField("werkstoff", "Rohrwerkstoff", werkstoff_optionen(), "auto", visible_if=v or None,
                     tooltip="Werte aus der Materialdatenbank (Gruppe „Rohrwerkstoff“). Über „Werkstoff …“ "
                             "lassen sich auch eigene Werkstoffe des Teams übernehmen."),
         NumberField("lam_rohr", "λ Rohrwerkstoff", "λ_R", "W/(m*K)", 50, min=0, decimals=3,
-                    visible_if={"werkstoff": ["frei"]}),
+                    visible_if={**v, "werkstoff": ["frei"]}),
         NumberField("daemm", "Dämmdicke", "s_D", "mm", daemm, min=0, min_inclusive=True, decimals=1,
-                    tooltip="0 = ungedämmt"),
-        ChoiceField("daemmstoff", "Dämmstoff", daemmstoff_optionen(), "b:mw-rohrschale",
+                    visible_if=v or None, tooltip="0 = ungedämmt"),
+        ChoiceField("daemmstoff", "Dämmstoff", daemmstoff_optionen(), default_daemmstoff,
                     tooltip="λ-Werte als Richtwerte bei typischer Mitteltemperatur – Herstellerkurve beachten"),
         NumberField("lam_d", "λ Dämmstoff", "λ_D", "W/(m*K)", 0.040, min=0, decimals=4,
                     visible_if={"daemmstoff": ["frei"]}),
