@@ -8,7 +8,7 @@ Systemskizze, Diagramm, PDF-Rechnungsnachweis und Excel/CSV-Export.
 > sind vor Verwendung in Nachweisen von fachkundiger Stelle gegen die jeweilige
 > Originalnorm zu prüfen.
 
-## Stand: Version 0.14.0
+## Stand: Version 0.15.0
 
 **Rechner (Phase 1 und 4)**
 
@@ -149,6 +149,22 @@ Neue Kette **„Lüftungsanlage“**: Luftvolumenstrom → Kanalnetz → Ventila
 **Favoriten und „Zuletzt verwendet“** – Stern in der Kopfzeile eines Rechners oder Rechtsklick im
 Rechnerbaum; oben in der Seitenleiste erscheinen „★ Favoriten“ und die letzten 8 geöffneten Rechner und
 Werkzeuge. Gespeichert wird nur lokal in den Benutzereinstellungen des PCs.
+
+**Getriebe / Antriebstechnik (Version 0.15, Kategorie Maschinenbau)** – ausgerichtet auf Katalog-Getriebe,
+vereinfachter Tragfähigkeitsnachweis:
+
+| Rechner | Inhalt |
+|---------|--------|
+| Getriebe – Antriebsauslegung | Betriebsfaktor (Laststoß, Laufzeit, Schaltungen) oder Katalogwert, M₂,erf, Motorleistung und IEC-Größe, Prüfung des gewählten Getriebes (f_B,vorh, Querkraft mit f_Z), Hochlaufzeit mit J/i² |
+| Getriebe – Übersetzung & Stufen | 1–3 Stufen, Zähnezahlvorschlag (teilerfremd), n, M, P je Welle |
+| Stirnradpaar – Geometrie | DIN 3960: Kreise, Achsabstand mit Profilverschiebung bzw. Σx aus a, ε_α/ε_β, Zahnweite, Unterschnitt- und Spitzengrenze |
+| Zahnradtragfähigkeit (vereinfacht) | Zahnkräfte, σ_H und σ_F mit K_A, K_v, K_Hβ, K_Hα; Sicherheiten S_H/S_F; Verzahnungswerkstoffe (Richtwerte) |
+| Wälzlager – Lebensdauer | ISO 281: P mit X/Y (Rillenkugellager automatisch), L₁₀h, L_nmh, S₀, C_erf; Lagerkräfte aus Zahnkräften |
+| Passfederverbindung | DIN 6885-1 Abmessungen, Flächenpressung Welle/Nabe, erforderliche Länge mit Normlänge |
+| Keilriementrieb | SPZ–SPC: Normlänge, Achsabstand, Umschlingung, Riemenanzahl (c₁, c₂, c₃), Wellenbelastung |
+| Rollenkettentrieb | DIN 8187: Kettenzug, Bruchsicherheit, Gliederzahl, Achsabstand, Polygoneffekt |
+
+Neue Kette **„Getriebeauslegung“**: Antrieb → Übersetzung → Stirnrad → Tragfähigkeit → Lager → Passfeder.
 
 **Werkzeuge (Phase 2)**
 

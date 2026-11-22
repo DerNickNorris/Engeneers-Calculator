@@ -341,6 +341,24 @@ KETTEN = [
             "V": (1, ERGEBNIS, "V"), "Vab": (1, ERGEBNIS, "V"), "t": (2, EINGABE, "t"),
             "p_strom": (2, EINGABE, "preis")}),
     ]),
+    Kette("Getriebeauslegung",
+          "Antriebsauslegung → Übersetzung → Stirnrad (Stufe 1) → Tragfähigkeit → Wälzlager → Passfeder (Abtrieb)", [
+              ("mb.antrieb", "Getriebe – Antriebsauslegung", {}),
+              ("mb.uebersetzung", "Getriebe – Übersetzung", {
+                  "n1": (0, EINGABE, "n1"), "n2": (0, EINGABE, "n2"), "P": (0, ERGEBNIS, "P1")}),
+              ("mb.stirnrad", "Getriebe – Stirnrad Stufe 1", {"z1": (1, ERGEBNIS, "z1_1"), "z2": (1, ERGEBNIS, "z2_1")},
+               {"mn": 2.5, "b": 30}),
+              ("mb.zahnrad_tragfaehigkeit", "Getriebe – Tragfähigkeit Stufe 1", {
+                  "mn": (2, EINGABE, "mn"), "z1": (2, EINGABE, "z1"), "z2": (2, EINGABE, "z2"),
+                  "beta": (2, EINGABE, "beta"), "alpha": (2, EINGABE, "alpha"), "x1": (2, ERGEBNIS, "x1"),
+                  "x2": (2, ERGEBNIS, "x2"), "b": (2, EINGABE, "b"), "M1": (1, ERGEBNIS, "M_0"),
+                  "n1": (0, EINGABE, "n1"), "KA": (0, ERGEBNIS, "fB")}),
+              ("mb.waelzlager", "Getriebe – Lager Ritzelwelle", {
+                  "Ft": (3, ERGEBNIS, "Ft"), "Fr_z": (3, ERGEBNIS, "Fr"), "Fa_z": (3, ERGEBNIS, "Fa"),
+                  "dw": (3, ERGEBNIS, "dw1"), "n": (0, EINGABE, "n1")}, {"kraefte": "zahnrad"}),
+              ("mb.passfeder", "Getriebe – Passfeder Abtrieb", {"T": (0, ERGEBNIS, "M2"), "KA": (0, ERGEBNIS, "fB")},
+               {"d": 60, "L": 90}),
+          ]),
 ]
 
 
