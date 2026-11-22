@@ -404,3 +404,46 @@ def test_berichtsdialog(window):
     dlg.cb["diagramme"].setChecked(False)
     opts = dlg.options()
     assert opts.position_ids == [a.id] and not opts.diagramme and opts.deckblatt
+
+
+# ------------------------------------------------------------- Tabellenfeld
+def test_tabellenfeld_kennlinie(window, tmp_path):
+    view = window.open_calculator("pu.betriebspunkt")
+    ed = view._editors["kennlinie"]
+    default = view.calc.defaults()["kennlinie"]
+    assert ed.rows() == [[float(v) for v in r] for r in default]
+    assert view.compute().ok
+
+    # ungültige Zelle → Feld markiert, Rechnung blockiert
+    ed.table.item(1, 1).setText("abc")
+    assert ed.table.property("invalid") is True
+    assert view._errors["kennlinie"].isVisibleTo(view)
+    assert not view.compute().ok
+    ed.table.item(1, 1).setText("5,8")
+    assert ed.table.property("invalid") is False
+
+    # Zeilen hinzufügen/entfernen, Einfügen aus Excel (Tabulator, Dezimalkomma)
+    n = ed.table.rowCount()
+    ed.add_row()
+    assert ed.table.rowCount() == n + 1
+    ed.remove_row()
+    assert ed.table.rowCount() == n
+    QApplication.clipboard().setText("0\t7\t0\n2\t6,4\t50\n4\t4,8\t60\n6\t2,4\t48\n")
+    ed.table.setCurrentCell(0, 0)
+    ed.paste()
+    assert ed.rows() == [[0, 7, 0], [2, 6.4, 50], [4, 4.8, 60], [6, 2.4, 48]]
+    ed.table.setCurrentCell(3, 1)          # Einfügen mitten in die Tabelle überschreibt nur Zellen
+    QApplication.clipboard().setText("2,5")
+    ed.paste()
+    assert ed.rows()[3] == [6, 2.5, 48] and ed.table.rowCount() == 4
+
+    # Speichern und Laden im Projekt
+    view.changed.emit()
+    pid = view.position_id
+    rows = ed.rows()
+    assert window._save_to(tmp_path / "k.irp")
+    window.open_project(str(tmp_path / "k.irp"))
+    assert window.project.get(pid).inputs["kennlinie"] == rows
+    view = window.open_position(pid) or window.open_calculator("pu.betriebspunkt")
+    assert view._editors["kennlinie"].rows() == rows
+    assert view.compute().ok

@@ -8,7 +8,7 @@ Systemskizze, Diagramm, PDF-Rechnungsnachweis und Excel/CSV-Export.
 > sind vor Verwendung in Nachweisen von fachkundiger Stelle gegen die jeweilige
 > Originalnorm zu prüfen.
 
-## Stand: Version 0.8.0
+## Stand: Version 0.9.0
 
 **Rechner (Phase 1 und 4)**
 
@@ -62,6 +62,20 @@ und Kupfer (EN 1057). **Rohrwerkstoff und Dämmstoff** sind auswählbar – die 
 Materialdatenbank (neue Gruppen „Rohrwerkstoff“ mit P235GH, P235TR1, 1.4571, Cu-DHP, PE-Xa, PE-RT,
 PB-1, PP-R, PE-HD-Mantelrohr und „Dämmstoff“ mit PUR nach EN 253, PIR, Mineralwolle, Elastomer,
 PE-Schaum); eigene Werkstoffe über „Werkstoff …“.
+
+**Pumpen (Version 0.9)** – für geschlossene Heiz-/Kältekreise, offene Systeme sowie Abwasser/Industrie
+(benutzerdefiniertes Medium mit ρ, ν, p_v; Viskositätshinweis nach ISO/TR 17766)
+
+| Rechner | Inhalt |
+|---------|--------|
+| Pumpenauslegung (Förderhöhe) | Förderstrom direkt oder aus Leistung/Spreizung; Förderhöhe aus Rohrreibung (Colebrook), Σζ, Komponenten, Regelventil (k_vs), geodätischer Höhe und Behälterdrücken; Anlagenkennlinie |
+| Pumpenkennlinie & Betriebspunkt | Kennlinienpunkte aus dem Datenblatt (Tabelle, Einfügen aus Excel), Ausgleichsparabel H(V̇), η formtreu interpoliert, Schnittpunkt mit der Anlagenkennlinie, Drehzahl vorgeben oder auf den Auslegungspunkt regeln (Affinitätsgesetze), Parallel-/Reihenbetrieb, Lage zum Bestpunkt (70–120 %) |
+| Pumpenleistung & Motor | Wirkungsgradkette Pumpe – Motor – FU, Verluste je Stufe, Motorgröße nach IEC-Reihe mit Reserve, IE3/IE4-Mindestwirkungsgrade (IEC 60034-30-1), optional Jahresenergie |
+| Energiekosten & Regelung | EU-Lastprofil 100/75/50/25 % (6/15/35/44 %) oder eigenes Profil; Vergleich ungeregelt / Δp-c / Δp-v / Anlagenkennlinie; Kosten, CO₂, Amortisation |
+| NPSH / Kavitation | NPSH_A aus Behälterdruck, Dampfdruck (IAPWS), Zulauf-/Saughöhe und Saugleitung; Nachweis gegen NPSH_R + Zuschlag, Mindestzulaufhöhe, höchste Wassertemperatur |
+
+Neuer Feldtyp **Tabelle** (`TableField`) im Rechner-Grundgerüst – wird in Eingabemaske, Projektdatei,
+PDF-Bericht und Excel-/CSV-Export automatisch unterstützt.
 
 **Werkzeuge (Phase 2)**
 

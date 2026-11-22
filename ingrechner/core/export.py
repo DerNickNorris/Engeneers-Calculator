@@ -6,7 +6,7 @@ import csv
 from pathlib import Path
 from typing import Any
 
-from .model import Calculator, CalcResult, ChoiceField
+from .model import Calculator, CalcResult, ChoiceField, TableField
 from .project import ProjectMeta
 from .units import fmt_num, pretty_unit
 
@@ -18,6 +18,12 @@ def _input_rows(calc: Calculator, raw: dict[str, Any]):
             continue
         if isinstance(f, ChoiceField):
             yield f.label, "", f.label_for(merged[f.key]), ""
+        elif isinstance(f, TableField):
+            rows, _ = f.parse(merged[f.key])
+            head = " / ".join(f"{c.label} [{pretty_unit(c.unit)}]" if c.unit else c.label for c in f.columns)
+            body = "; ".join(" / ".join("–" if v is None else fmt_num(v, c.decimals) for v, c in zip(r, f.columns))
+                             for r in rows)
+            yield f.label, "", f"{head}: {body}", ""
         else:
             yield f.label, f.symbol, float(merged[f.key]), pretty_unit(f.unit)
 

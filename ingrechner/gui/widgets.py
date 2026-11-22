@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QByteArray, QRectF, QSize, Qt
+from PySide6.QtCore import QByteArray, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QImage, QPainter
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWidget
@@ -117,3 +117,168 @@ def page_header(layout: QVBoxLayout, title: str, description: str, badge: str | 
     d.setObjectName("CalcDesc")
     d.setWordWrap(True)
     layout.addWidget(d)
+
+
+class TableEditor(QWidget):
+    """Tabelleneditor für ein :class:`TableField` (z. B. Kennlinienpunkte aus dem Datenblatt).
+
+    Zellen akzeptieren Komma oder Punkt; leere Zeilen werden ignoriert. Werte können auch per
+    Strg+V aus Excel (Tabulator-getrennt) eingefügt werden.
+    """
+
+    edited = Signal()
+
+    def __init__(self, field, parent: QWidget | None = None) -> None:
+        from PySide6.QtWidgets import QAbstractItemView, QHeaderView, QPushButton, QTableWidget
+
+        from ingrechner.core.units import pretty_unit
+
+        super().__init__(parent)
+        self.field = field
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(4)
+        self.table = QTableWidget(0, len(field.columns))
+        self.table.setObjectName("FieldTable")
+        self.table.setHorizontalHeaderLabels(
+            [f"{c.label} [{pretty_unit(c.unit)}]" + (" (opt.)" if c.optional else "") if c.unit
+             else c.label + (" (opt.)" if c.optional else "") for c in field.columns])
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table.verticalHeader().setDefaultSectionSize(24)
+        self.table.setSelectionMode(QAbstractItemView.ContiguousSelection)
+        self.table.setToolTip(field.tooltip)
+        self.table.itemChanged.connect(self._changed)
+        lay.addWidget(self.table)
+        btns = QHBoxLayout()
+        btns.setContentsMargins(0, 0, 0, 0)
+        self.btn_add = QPushButton("+ Zeile")
+        self.btn_del = QPushButton("− Zeile")
+        for b in (self.btn_add, self.btn_del):
+            b.setObjectName("Small")
+            b.setCursor(Qt.PointingHandCursor)
+        self.btn_add.clicked.connect(self.add_row)
+        self.btn_del.clicked.connect(self.remove_row)
+        hint = QLabel("Strg+V: aus Excel einfügen")
+        hint.setToolTip("Tabulator-getrennte Werte aus Excel einfügen; ab Zeile 1, Spalte 1 wird die Tabelle ersetzt.")
+        hint.setObjectName("Unit")
+        btns.addWidget(self.btn_add)
+        btns.addWidget(self.btn_del)
+        btns.addStretch(1)
+        btns.addWidget(hint)
+        lay.addLayout(btns)
+        from PySide6.QtGui import QKeySequence, QShortcut
+        QShortcut(QKeySequence.Paste, self.table, activated=self.paste, context=Qt.WidgetShortcut)
+
+    # ------------------------------------------------------------ API
+    def set_rows(self, rows) -> None:
+        from ingrechner.core.units import fmt_num
+
+        self.table.blockSignals(True)
+        rows = list(rows or [])
+        self.table.setRowCount(max(len(rows), self.field.min_rows))
+        for r in range(self.table.rowCount()):
+            row = rows[r] if r < len(rows) else []
+            for c, col in enumerate(self.field.columns):
+                v = row[c] if c < len(row) else None
+                if v is None or v == "":
+                    text = ""
+                elif isinstance(v, (int, float)):
+                    text = fmt_num(float(v), col.decimals).replace(" ", "")
+                else:
+                    text = str(v)
+                self.table.setItem(r, c, self._item(text))
+        self.table.blockSignals(False)
+        self._fit()
+
+    def rows(self) -> list[list]:
+        from ingrechner.core.units import parse_num
+
+        out = []
+        for r in range(self.table.rowCount()):
+            row = []
+            for c in range(self.table.columnCount()):
+                it = self.table.item(r, c)
+                text = it.text().strip() if it else ""
+                if not text:
+                    row.append(None)
+                    continue
+                try:
+                    row.append(parse_num(text))
+                except ValueError:
+                    row.append(text)
+            if any(v is not None for v in row):
+                out.append(row)
+        return out
+
+    def add_row(self) -> None:
+        if self.table.rowCount() >= self.field.max_rows:
+            return
+        r = self.table.currentRow() + 1 if self.table.currentRow() >= 0 else self.table.rowCount()
+        self.table.blockSignals(True)
+        self.table.insertRow(r)
+        for c in range(self.table.columnCount()):
+            self.table.setItem(r, c, self._item(""))
+        self.table.blockSignals(False)
+        self._fit()
+        self.edited.emit()
+
+    def remove_row(self) -> None:
+        if self.table.rowCount() <= 1:
+            return
+        r = self.table.currentRow() if self.table.currentRow() >= 0 else self.table.rowCount() - 1
+        self.table.removeRow(r)
+        self._fit()
+        self.edited.emit()
+
+    def paste(self) -> None:
+        from PySide6.QtWidgets import QApplication
+
+        text = QApplication.clipboard().text()
+        lines = [ln for ln in text.replace("\r", "").split("\n") if ln.strip()]
+        if not lines:
+            return
+        r0 = max(self.table.currentRow(), 0)
+        c0 = max(self.table.currentColumn(), 0)
+        need = min(r0 + len(lines), self.field.max_rows)
+        self.table.blockSignals(True)
+        if r0 == 0 and c0 == 0:        # ganze Kennlinie eingefügt → Tabelle ersetzen
+            self.table.setRowCount(max(need, self.field.min_rows))
+            for r in range(self.table.rowCount()):
+                for c in range(self.table.columnCount()):
+                    self.table.setItem(r, c, self._item(""))
+        while self.table.rowCount() < need:
+            self.table.insertRow(self.table.rowCount())
+        for i, ln in enumerate(lines[: need - r0]):
+            cells = ln.split("\t") if "\t" in ln else ln.split(";")
+            for j, cell in enumerate(cells):
+                c = c0 + j
+                if c < self.table.columnCount():
+                    self.table.setItem(r0 + i, c, self._item(cell.strip()))
+        self.table.blockSignals(False)
+        self._fit()
+        self.edited.emit()
+
+    # --------------------------------------------------------- intern
+    def _item(self, text: str):
+        from PySide6.QtWidgets import QTableWidgetItem
+
+        it = QTableWidgetItem(text)
+        it.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        return it
+
+    def _changed(self, _item) -> None:
+        self.edited.emit()
+
+    def _fit(self) -> None:
+        h = self.table.horizontalHeader().height() or 26
+        self.table.setFixedHeight(h + 24 * min(self.table.rowCount(), 9) + 4)
+        self.btn_add.setEnabled(self.table.rowCount() < self.field.max_rows)
+        self.btn_del.setEnabled(self.table.rowCount() > 1)
+
+    # Kompatibilität mit der Fehleranzeige der Eingabemaske
+    def setProperty(self, name, value):  # noqa: N802 - Qt-API
+        if name == "invalid":
+            self.table.setProperty(name, value)
+            self.table.style().unpolish(self.table)
+            self.table.style().polish(self.table)
+        return super().setProperty(name, value)
