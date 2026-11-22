@@ -6,11 +6,11 @@ import numpy as np
 
 from ingrechner.core.model import Calculator, ChoiceField, NumberField
 from ingrechner.core.rohrdaten import rohr, rohr_optionen
-from ingrechner.core.stoffwerte import dampfdruck, stoffwerte
+from ingrechner.core import medien
 from ingrechner.core.svg import ACCENT, INK, MUTED, Svg
 from ingrechner.core.units import Q_, fmt_num
 
-from ._pumpe import G, medium, medium_felder, nullstelle, pumpe_svg, rauheit, rauheit_felder, rohr_dp
+from ._pumpe import G, medium, medium_felder, medium_hinweise, nullstelle, pumpe_svg, rauheit, rauheit_felder, rohr_dp
 
 ROHR = {"verlust": ["rohr"]}
 DIREKT = {"verlust": ["direkt"]}
@@ -110,10 +110,10 @@ class NPSH(Calculator):
                     highlight=True)
         self.result("Hv", "Verlusthöhe Saugleitung", "H_v,s", Q_(Hv, "m"), "m", 3)
 
-        if inp["medium"] == "wasser":
+        if inp["medium"] != "benutzer" and med.pv > 0:
             t_max = self._t_max(inp, p, hz, Hv, erf)
             if t_max is not None:
-                self.result("tmax", "Höchste Wassertemperatur", "θ_max", Q_(t_max, "degC"), "degC", 1)
+                self.result("tmax", "Höchste Medientemperatur", "θ_max", Q_(t_max, "degC"), "degC", 1)
                 self.step("Höchstzulässige Temperatur", "NPSH_A(θ) = NPSH_R + S  (ρ, p_v temperaturabhängig)",
                           "Bisektion über θ", f"θ_max = {fmt_num(t_max, 1)} °C")
 
@@ -132,31 +132,42 @@ class NPSH(Calculator):
         if hz < 0:
             self.info("Saugbetrieb: Saugleitung steigend zur Pumpe verlegen (Luftsackfreiheit), Fußventil bzw. "
                       "selbstansaugende Pumpe vorsehen.")
+        medium_hinweise(self, med)
         if v > 1.5:
             self.warn(f"Fließgeschwindigkeit in der Saugleitung {fmt_num(v, 2)} m/s – üblich ≤ 1,0–1,5 m/s.")
         self.info("NPSH_R wird in Datenblättern meist als NPSH3 (3 % Förderhöhenabfall) angegeben; beginnende "
                   "Kavitation tritt bereits früher auf.")
 
-    def _t_max(self, inp, p: float, hz: float, Hv: float, erf: float) -> float | None:
-        def npsha(t: float) -> float:
-            sw = stoffwerte("wasser", t)
-            return (p - dampfdruck(t) * 1000) / (sw.rho * G) + hz - Hv - erf
+    @staticmethod
+    def _npsha_t(mid: str, t: float, p: float, hz: float, Hv: float) -> float:
+        z = medien.medium(mid).zustand(t)
+        return (p - z.pv) / (z.rho * G) + hz - Hv
 
-        if npsha(0.0) < 0:
+    def _t_max(self, inp, p: float, hz: float, Hv: float, erf: float) -> float | None:
+        m = medien.medium(inp["medium"])
+        lo, hi = m.t_min, min(m.t_max, 150.0)
+
+        def f(t: float) -> float:
+            return self._npsha_t(m.id, t, p, hz, Hv) - erf
+
+        if f(lo) < 0:
             return None
-        if npsha(150.0) >= 0:
-            return 150.0
-        return nullstelle(npsha, 0.0, 150.0)
+        if f(hi) >= 0:
+            return hi
+        return nullstelle(f, lo, hi)
 
     def plot(self, fig, raw, result) -> bool:
-        if not result.ok or raw.get("medium") != "wasser":
+        if not result.ok or raw.get("medium") == "benutzer":
+            return False
+        m = medien.medium(raw["medium"])
+        if m.zustand(m.t_max).pv <= 0:
             return False
         p = float(raw["p"]) * 1000
         hz = float(raw["hz"])
         Hv = result.value("Hv")
         erf = result.value("erf")
-        ts = np.linspace(0, 150, 151)
-        na = [(p - dampfdruck(t) * 1000) / (stoffwerte("wasser", t).rho * G) + hz - Hv for t in ts]
+        ts = np.linspace(m.t_min, min(m.t_max, 150.0), 151)
+        na = [self._npsha_t(m.id, t, p, hz, Hv) for t in ts]
         ax = fig.subplots()
         ax.plot(ts, na, color="#1f6fb2", lw=2, label="NPSH_A der Anlage")
         ax.axhline(erf, color="#c0392b", ls="--", lw=1.5, label="NPSH_R + S")
@@ -165,10 +176,10 @@ class NPSH(Calculator):
         unten = -max(2.0, erf)
         ax.fill_between(ts, unten - 5, erf, color="#f5d7d3", alpha=0.35, zorder=0)
         ax.text(3, erf, " Kavitationsgefahr", va="top", fontsize=8, color="#c0392b")
-        ax.set_xlabel("Wassertemperatur θ  [°C]")
+        ax.set_xlabel("Medientemperatur θ  [°C]")
         ax.set_ylabel("Haltedruckhöhe  [m]")
         ax.set_title("NPSH_A über der Medientemperatur")
-        ax.set_xlim(0, 150)
+        ax.set_xlim(ts[0], ts[-1])
         ax.set_ylim(unten, max(max(na), erf) * 1.15 + 0.5)
         ax.grid(True, alpha=0.3)
         ax.legend(loc="lower left", fontsize=8)

@@ -447,3 +447,18 @@ def test_tabellenfeld_kennlinie(window, tmp_path):
     view = window.open_position(pid) or window.open_calculator("pu.betriebspunkt")
     assert view._editors["kennlinie"].rows() == rows
     assert view.compute().ok
+
+
+def test_mediendatenbank(window):
+    view = window.open_tool("tool.medien")
+    view.select("erdgas_h")
+    assert view.current.id == "erdgas_h" and view.p_row.isVisibleTo(view)
+    assert view.table.rowCount() > 3
+    view.p.setText("5")
+    view._show()
+    assert float(view.table.item(0, 1).text().replace(",", ".")) > 3      # ρ bei 5 bar
+    view.select("fett_nlgi2")
+    assert view.table.isHidden()
+    view.search.setText("schlamm")
+    assert view.current.id.startswith("klaerschlamm")
+    view.search.clear()

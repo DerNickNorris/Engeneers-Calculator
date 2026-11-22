@@ -10,14 +10,14 @@ from ingrechner.core.model import Calculator, ChoiceField, NumberField
 from ingrechner.core.svg import ACCENT, INK, MUTED, Svg
 from ingrechner.core.units import Q_, fmt_num, fmt_q
 
-# Stoffwerte bei ca. 1 bar: (Name, Dichte kg/m³, kin. Viskosität mm²/s)
-MEDIEN = {
-    "wasser_10": ("Wasser 10 °C", 999.7, 1.306),
-    "wasser_20": ("Wasser 20 °C", 998.2, 1.004),
-    "wasser_60": ("Wasser 60 °C", 983.2, 0.474),
-    "luft_20": ("Luft 20 °C, 1,013 bar", 1.204, 15.11),
-}
+from ingrechner.core import medien
+
 BENUTZER = {"medium": ["benutzer"]}
+DB = {"medium": [m.id for m in medien.MEDIEN if m.fliessfaehig]}
+GAS = {"medium": medien.ids("gas")}
+# Auswahlwerte bis Version 0.9 → (Medium, Temperatur)
+ALT = {"wasser_10": ("wasser", 10.0), "wasser_20": ("wasser", 20.0), "wasser_60": ("wasser", 60.0),
+       "luft_20": ("luft", 20.0)}
 G = Q_(9.80665, "m/s**2")
 
 
@@ -61,27 +61,42 @@ class DruckverlustRohr(Calculator):
                     tooltip="z. B. Bogen 90° ≈ 0,3–0,5; Absperrschieber offen ≈ 0,2; Rückschlagventil ≈ 2–4"),
         NumberField("dz", "Höhendifferenz (Ende − Anfang)", "Δz", "m", 0, decimals=2,
                     tooltip="Positiv, wenn das Fluid nach oben gefördert wird"),
-        ChoiceField("medium", "Medium", [
-            *[(k, v[0]) for k, v in MEDIEN.items()],
-            ("benutzer", "Benutzerdefiniert"),
-        ], "wasser_20"),
+        ChoiceField("medium", "Medium", [*[(m.id, m.name) for m in medien.MEDIEN if m.fliessfaehig],
+                                         ("benutzer", "Benutzerdefiniert")], "wasser",
+                    tooltip="Stoffwerte aus der Mediendatenbank (Extras › Mediendatenbank) – Richtwerte"),
+        NumberField("theta", "Medientemperatur", "θ", "degC", 20, min=-50, max=400, min_inclusive=True,
+                    decimals=1, visible_if=DB),
+        NumberField("p", "Betriebsdruck (absolut)", "p_abs", "bar", 1.01325, min=0, decimals=4, visible_if=GAS,
+                    tooltip="Absolutdruck am Leitungsanfang; Gasdichte ρ = p·M/(Z·R·T)"),
         NumberField("rho", "Dichte", "ρ", "kg/m**3", 998.2, min=0, decimals=1, visible_if=BENUTZER),
         NumberField("nu", "Kinematische Viskosität", "ν", "mm**2/s", 1.004, min=0, decimals=4,
                     visible_if=BENUTZER),
     ]
 
+    def upgrade(self, raw):
+        raw = dict(raw)
+        if raw.get("medium") in ALT:
+            raw["medium"], raw["theta"] = ALT[raw["medium"]]
+        return raw
+
     def _stoff(self, inp):
         if inp["medium"] == "benutzer":
             return inp["rho"], inp["nu"]
-        _, rho, nu = MEDIEN[inp["medium"]]
-        return Q_(rho, "kg/m**3"), Q_(nu, "mm**2/s")
+        z = medien.medium(inp["medium"]).zustand(inp["theta"].to("degC").magnitude, inp["p"].to("Pa").magnitude)
+        return Q_(z.rho, "kg/m**3"), Q_(z.nu, "m**2/s").to("mm**2/s")
 
     def compute(self, inp) -> None:
         Qv, d, L, k = inp["Q"], inp["d"], inp["L"], inp["k"]
         rho, nu = self._stoff(inp)
-        if inp["medium"] != "benutzer":
-            self.info(f"Stoffwerte {MEDIEN[inp['medium']][0]}: ρ = {fmt_q(rho, 'kg/m**3', 1)}, "
-                      f"ν = {fmt_q(nu, 'mm**2/s', 3)}.")
+        med = None if inp["medium"] == "benutzer" else medien.medium(inp["medium"])
+        if med is not None:
+            zus = f", p = {fmt_q(inp['p'], 'bar', 3)}" if med.art == "gas" else ""
+            self.step("Stoffwerte", "Mediendatenbank" + (" (ρ = p·M/(Z·R·T))" if med.art == "gas" else ""),
+                      f"{med.name}, θ = {fmt_q(inp['theta'], 'degC', 1)}{zus}",
+                      f"ρ = {fmt_q(rho, 'kg/m**3', 3 if med.art == 'gas' else 1)}, ν = {fmt_q(nu, 'mm**2/s', 3)}")
+            if not med.newtonsch:
+                self.warn("Nicht-newtonsches Medium: Berechnung mit äquivalenter Viskosität – nur überschlägig. "
+                          + med.hinweis)
 
         A = math.pi * d**2 / 4
         v = (Qv / A).to("m/s")
@@ -140,23 +155,32 @@ class DruckverlustRohr(Calculator):
                       "(hier turbulent nach Colebrook gerechnet, eher konservativ).")
         else:
             self.info("Turbulente Strömung (Re ≥ 4000).")
-        is_water = inp["medium"].startswith("wasser")
+        is_water = med is not None and med.art == "fluessig" and med.id in ("wasser", "klaerwasser")
         if is_water and v.magnitude > 3:
             self.warn(f"Hohe Geschwindigkeit v = {fmt_q(v, 'm/s', 2)} > 3 m/s: Geräusche, Erosion und "
                       "Druckstöße möglich.")
         elif is_water and v.magnitude < 0.3:
             self.info("Sehr geringe Geschwindigkeit (< 0,3 m/s): Ablagerungen möglich, Rohr eventuell überdimensioniert.")
-        if inp["medium"] == "luft_20" and abs(dp.to("bar").magnitude) > 0.1:
-            self.warn("Druckverlust > 10 % des Absolutdrucks: Annahme inkompressibler Strömung ist "
-                      "für Gase nicht mehr zulässig.")
+        if med is not None and med.art == "gas":
+            anteil = abs((dp_r + dp_e).to("bar").magnitude) / inp["p"].to("bar").magnitude
+            if anteil > 0.1:
+                self.warn(f"Druckverlust {fmt_num(anteil * 100, 0)} % des Absolutdrucks: Annahme inkompressibler "
+                          "Strömung nicht mehr zulässig – Leitung abschnittsweise rechnen bzw. kompressible "
+                          "Gleichung (z. B. DVGW G 2000/Renouard) verwenden.")
+            elif anteil > 0.02:
+                self.info(f"Druckverlust {fmt_num(anteil * 100, 1)} % des Absolutdrucks – inkompressible Rechnung "
+                          "mit Dichte am Leitungsanfang noch zulässig (< 10 %).")
+            if v.magnitude > 20:
+                self.warn(f"Gasgeschwindigkeit {fmt_q(v, 'm/s', 1)} – üblich sind Niederdruck ≤ 6–10 m/s, "
+                          "Mitteldruck ≤ 20 m/s.")
 
     # -------------------------------------------------------------- Diagramm
     def plot(self, fig, raw, result) -> bool:
         if not result.ok:
             return False
-        inp = {f.key: raw.get(f.key, f.default) for f in self.fields}
-        rho, nu = self._stoff({**inp, "rho": Q_(float(inp["rho"]), "kg/m**3"),
-                               "nu": Q_(float(inp["nu"]), "mm**2/s")})
+        inp = self.upgrade({f.key: raw.get(f.key, f.default) for f in self.fields} | self.upgrade(raw))
+        rho, nu = self._stoff({**inp, "rho": Q_(float(inp["rho"]), "kg/m**3"), "nu": Q_(float(inp["nu"]), "mm**2/s"),
+                               "theta": Q_(float(inp["theta"]), "degC"), "p": Q_(float(inp["p"]), "bar")})
         d = float(inp["d"]) / 1000
         L, k = float(inp["L"]), float(inp["k"]) / 1000
         zeta, dz = float(inp["zeta"]), float(inp["dz"])

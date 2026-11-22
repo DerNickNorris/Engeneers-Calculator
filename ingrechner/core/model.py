@@ -212,9 +212,13 @@ class Calculator:
             return True
         return all(raw.get(k) in allowed for k, allowed in f.visible_if.items())
 
+    def upgrade(self, raw: dict[str, Any]) -> dict[str, Any]:
+        """Übersetzt Eingaben älterer Programmversionen (z. B. umbenannte Auswahlwerte). Überschreibbar."""
+        return dict(raw)
+
     def run(self, raw: dict[str, Any]) -> CalcResult:
         """Validiert die Rohwerte (Zahlen in Feldeinheit), rechnet und liefert das Ergebnis."""
-        values = self.defaults() | dict(raw)
+        values = self.defaults() | self.upgrade(raw)
         errors: dict[str, str] = {}
         inp: dict[str, Any] = {}
         for f in self.fields:

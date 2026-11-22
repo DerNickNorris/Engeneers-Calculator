@@ -48,7 +48,12 @@ def test_alle_auswahlkombinationen_rechnen(cls):
     choices = [f for f in calc.fields if isinstance(f, ChoiceField)]
     for f in choices:
         for value, _ in f.options:
-            r = calc.run({f.key: value})
+            raw = {f.key: value}
+            if f.key == "medium" and "theta" in calc.defaults() and value != "benutzer":
+                from ingrechner.core.medien import medium
+                m = medium(value)
+                raw["theta"] = min(max(calc.defaults()["theta"], m.t_min), m.t_max)   # Gültigkeitsbereich
+            r = calc.run(raw)
             assert r.ok, (f.key, value, r.field_errors, [m.text for m in r.messages])
 
 

@@ -5,7 +5,8 @@ from __future__ import annotations
 import numpy as np
 
 from ingrechner.core.model import Calculator, ChoiceField, NumberField
-from ingrechner.core.stoffwerte import MEDIEN_AUSWAHL, stoffwerte
+from ingrechner.core.medien import waerme_auswahl
+from ingrechner.core.medien import waermestoff as stoffwerte
 from ingrechner.core.svg import ACCENT, INK, Svg
 from ingrechner.core.units import Q_, fmt_num, fmt_q
 
@@ -29,7 +30,7 @@ class Waermemenge(Calculator):
     fields = [
         ChoiceField("modus", "Gesucht", [("leistung", "Wärmeleistung Q̇"), ("volumenstrom", "Volumenstrom V̇"),
                                          ("spreizung", "Temperaturspreizung Δθ")], "volumenstrom"),
-        ChoiceField("medium", "Medium", MEDIEN_AUSWAHL, "wasser"),
+        ChoiceField("medium", "Medium", waerme_auswahl(), "wasser"),
         NumberField("tvl", "Vorlauf-/Eintrittstemperatur", "θ_VL", "degC", 70, min=-20, max=200,
                     min_inclusive=True, decimals=1),
         NumberField("Q", "Wärmeleistung", "Q̇", "kW", 20, min=0, decimals=3, visible_if=MIT_Q),
