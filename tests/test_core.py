@@ -81,14 +81,74 @@ def test_rich_text_tiefstellung_und_escaping():
 
 def test_projekt_roundtrip(tmp_path):
     p = Project(meta=ProjectMeta(projekt="Halle 3", nummer="P-042", bearbeiter="Test"))
-    p.set_inputs("mb.biegung_einfeldtraeger", {"L": 3000.0, "lastfall": "streckenlast"}, "Pos. 1")
-    assert p.dirty
+    a = p.add_position("mb.biegung_einfeldtraeger", {"L": 3000.0, "lastfall": "streckenlast"}, "Notiz A",
+                       titel="Träger Achse A")
+    b = p.add_position("mb.biegung_einfeldtraeger", {"L": 5000.0}, titel="Träger Achse B")
+    assert p.dirty and (a.nr, b.nr) == ("1", "2")
     path = p.save(tmp_path / "test")          # Endung wird ergänzt
     assert path.suffix == ".irp" and not p.dirty
     q = Project.load(path)
     assert q.meta.projekt == "Halle 3"
-    assert q.inputs("mb.biegung_einfeldtraeger") == {"L": 3000.0, "lastfall": "streckenlast"}
-    assert q.notiz("mb.biegung_einfeldtraeger") == "Pos. 1"
+    assert [x.titel for x in q.positions] == ["Träger Achse A", "Träger Achse B"]
+    assert q.get(a.id).inputs == {"L": 3000.0, "lastfall": "streckenlast"} and q.get(a.id).notiz == "Notiz A"
+    assert len(q.positions_for("mb.biegung_einfeldtraeger")) == 2
+
+
+def test_projekt_version1_wird_uebernommen(tmp_path):
+    import json as _json
+
+    f = tmp_path / "alt.irp"
+    f.write_text(_json.dumps({"format": "ingrechner-projekt", "version": 1, "meta": {"projekt": "Alt"},
+                              "calcs": {"et.spannungsfall": {"inputs": {"L": 50.0}, "notiz": "UV1"},
+                                        "st.querschnittswerte": {"inputs": {"form": "kreis"}, "notiz": ""}}}),
+                 encoding="utf-8")
+    q = Project.load(f)
+    assert [(x.nr, x.calc) for x in q.positions] == [("1", "et.spannungsfall"), ("2", "st.querschnittswerte")]
+    assert q.positions[0].inputs == {"L": 50.0} and q.positions[0].notiz == "UV1"
+    q.save(f)
+    assert _json.loads(f.read_text(encoding="utf-8"))["version"] == 2
+
+
+def test_positionen_verwalten():
+    p = Project()
+    a = p.add_position("x", nr="3")
+    b = p.add_position("x", nr="10a")
+    assert p.next_nr() == "11"
+    c = p.duplicate(a.id)
+    assert [x.id for x in p.positions] == [a.id, c.id, b.id] and c.nr == "11"
+    assert p.move(b.id, -1) and [x.id for x in p.positions] == [a.id, b.id, c.id]
+    assert not p.move(a.id, -1)
+    p.update(c.id, nr="2", titel="Kopie")
+    p.sort_by_nr()
+    assert [x.nr for x in p.positions] == ["2", "3", "10a"]
+    p.remove(b.id)
+    assert [x.id for x in p.positions] == [c.id, a.id]
+    assert c.label("Biegung") == "Pos. 2 – Kopie" and Project().add_position("x", nr="").label("Biegung") == "Biegung"
+
+
+def test_gesamtbericht(tmp_path):
+    from ingrechner.core.project_report import ReportOptions, build_project_report, evaluate
+
+    p = Project(meta=ProjectMeta(projekt="Halle 3", nummer="P-1"))
+    ok = p.add_position("mb.biegung_einfeldtraeger", {}, titel="Träger A")
+    warn = p.add_position("mb.biegung_einfeldtraeger", {"F": 100}, titel="Träger B")
+    bad = p.add_position("et.spannungsfall", {"L": -5})
+    unknown = p.add_position("gibt.es.nicht", {})
+    calcs = registry.by_id()
+    status = {r.position.id: r.status[0] for r in evaluate(p, calcs)}
+    assert status[ok.id] == "erfüllt" and "Warnung" in status[warn.id]
+    assert status[bad.id] == "Fehler" and status[unknown.id] == "Rechner unbekannt"
+
+    pdf = build_project_report(tmp_path / "g.pdf", p, calcs)
+    data = pdf.read_bytes()
+    assert data.startswith(b"%PDF") and len(data) > 20000
+    # nur zwei Positionen, ohne Deckblatt/Verzeichnis/Diagramme
+    opts = ReportOptions(position_ids=[ok.id, warn.id], deckblatt=False, inhaltsverzeichnis=False,
+                         diagramme=False)
+    small = build_project_report(tmp_path / "k.pdf", p, calcs, opts).read_bytes()
+    assert len(small) < len(data)
+    with pytest.raises(ValueError):
+        build_project_report(tmp_path / "x.pdf", p, calcs, ReportOptions(position_ids=[]))
 
 
 def test_projekt_fremde_datei_abgelehnt(tmp_path):

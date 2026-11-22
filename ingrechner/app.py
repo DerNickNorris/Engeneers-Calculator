@@ -44,6 +44,23 @@ def main(argv: list[str] | None = None) -> int:
     return app.exec()
 
 
+def _report_ok() -> bool:
+    """Erzeugt testweise einen Gesamtbericht mit zwei Positionen (ohne Skizzen)."""
+    import tempfile
+    from pathlib import Path
+
+    from ingrechner.core import registry
+    from ingrechner.core.project import Project
+    from ingrechner.core.project_report import build_project_report
+
+    p = Project()
+    p.add_position("mb.biegung_einfeldtraeger", {}, titel="Selbsttest")
+    p.add_position("fl.u_wert", {})
+    with tempfile.TemporaryDirectory() as tmp:
+        out = build_project_report(Path(tmp) / "selbsttest.pdf", p, registry.by_id())
+        return out.read_bytes()[:4] == b"%PDF"
+
+
 def _multimedia_ok(lines: list[str]) -> bool:
     """Lädt Qt Multimedia und dessen Plugins wie beim Diktat.
 
@@ -105,6 +122,7 @@ def selftest() -> int:
     from ingrechner.core.protocols import Protocol, TemplateLibrary
 
     checks["Protokollvorlagen"] = bool(Protocol.new(TemplateLibrary(None).get("b:baubesprechung")).values)
+    checks["Gesamtbericht"] = _report_ok()
     checks["Spracherkennung installiert"] = speech.available()
     checks["Mikrofon-Modul (Qt Multimedia)"] = _multimedia_ok(lines)
     model = next((a.split("=", 1)[1] for a in sys.argv if a.startswith("--selftest-model=")), None)
