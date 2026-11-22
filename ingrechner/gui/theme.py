@@ -81,6 +81,9 @@ QToolButton#LinkButton:hover {{ background: {C['accent_softer']}; border-color: 
 QToolButton#LinkButton[active="true"] {{ background: {C['accent_soft']}; border-color: {C['accent']}; }}
 QLineEdit[linked="true"], QComboBox[linked="true"] {{ background: {C['accent_softer']}; color: {C['text']};
     border: 1px dashed {C['accent']}; }}
+QToolButton#FavButton {{ font-size: 16pt; color: {C['muted']}; border: none; padding: 0 4px; }}
+QToolButton#FavButton[active="true"] {{ color: #d4a017; }}
+QToolButton#FavButton:hover {{ color: #d4a017; }}
 #LinkInfo {{ color: {C['accent']}; font-size: 8.5pt; }}
 
 QTableWidget {{ background: {C['panel']}; border: none; gridline-color: {C['border']};

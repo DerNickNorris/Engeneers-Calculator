@@ -146,6 +146,10 @@ Aufstellhöhe), feuchte Luft nach Mollier (Magnus-Formel DIN 4108-3):
 
 Neue Kette **„Lüftungsanlage“**: Luftvolumenstrom → Kanalnetz → Ventilator → WRG.
 
+**Favoriten und „Zuletzt verwendet“** – Stern in der Kopfzeile eines Rechners oder Rechtsklick im
+Rechnerbaum; oben in der Seitenleiste erscheinen „★ Favoriten“ und die letzten 8 geöffneten Rechner und
+Werkzeuge. Gespeichert wird nur lokal in den Benutzereinstellungen des PCs.
+
 **Werkzeuge (Phase 2)**
 
 | Werkzeug                     | Kurzbeschreibung |

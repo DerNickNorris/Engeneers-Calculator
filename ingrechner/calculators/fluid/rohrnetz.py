@@ -316,5 +316,5 @@ class Rohrnetz(Calculator):
             s.text((x0 + x1) / 2 + 10, 121, f"TS {i}", 10, INK, bold=True)
         s.text(345, 28, "ungünstigster Verbraucher", 9, MUTED, "end")
         s.text(180, 175, "Q̇ bzw. V̇ nimmt je Abzweig ab", 11, MUTED)
-        s.text(180, 200, "Strang: Δp = Σ R·L + Σ Σζ·ρv²/2 + Σ Δp_E", 11, INK)
+        s.text(180, 200, "Strang: Δp = Σ (R·L + Σζ·ρv²/2 + Einbauten)", 11, INK)
         return s.render()
