@@ -282,3 +282,29 @@ class TableEditor(QWidget):
             self.table.style().unpolish(self.table)
             self.table.style().polish(self.table)
         return super().setProperty(name, value)
+
+
+_LINK_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="{c}" stroke-width="2.2" '
+    'stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/>'
+    '<path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>')
+_ICON_CACHE: dict = {}
+
+
+def link_icon(color: str = "#6b7b8c"):
+    """Kettensymbol für verknüpfte Felder (als QIcon, aus SVG gerendert)."""
+    from PySide6.QtGui import QIcon, QPixmap
+
+    if color not in _ICON_CACHE:
+        icon = QIcon()
+        for size in (16, 32):
+            img = QImage(size, size, QImage.Format_ARGB32)
+            img.fill(0)
+            r = QSvgRenderer(QByteArray(_LINK_SVG.format(c=color).encode()))
+            painter = QPainter(img)
+            painter.setRenderHint(QPainter.Antialiasing)
+            r.render(painter)
+            painter.end()
+            icon.addPixmap(QPixmap.fromImage(img))
+        _ICON_CACHE[color] = icon
+    return _ICON_CACHE[color]

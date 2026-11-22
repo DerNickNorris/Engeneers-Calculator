@@ -76,6 +76,12 @@ QPushButton:pressed {{ background: {C['accent_soft']}; }}
 QPushButton#Primary {{ background: {C['accent']}; color: white; border: 1px solid {C['accent']}; font-weight: 600; }}
 QPushButton#Primary:hover {{ background: {C['accent_hover']}; }}
 QPushButton#Small {{ padding: 2px 10px; font-size: 8.5pt; }}
+QToolButton#LinkButton {{ border: 1px solid transparent; border-radius: 4px; padding: 2px; }}
+QToolButton#LinkButton:hover {{ background: {C['accent_softer']}; border-color: {C['border_strong']}; }}
+QToolButton#LinkButton[active="true"] {{ background: {C['accent_soft']}; border-color: {C['accent']}; }}
+QLineEdit[linked="true"], QComboBox[linked="true"] {{ background: {C['accent_softer']}; color: {C['text']};
+    border: 1px dashed {C['accent']}; }}
+#LinkInfo {{ color: {C['accent']}; font-size: 8.5pt; }}
 
 QTableWidget {{ background: {C['panel']}; border: none; gridline-color: {C['border']};
                 selection-background-color: {C['accent_soft']}; selection-color: {C['text']}; }}

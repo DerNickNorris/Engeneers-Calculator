@@ -66,6 +66,19 @@ def fmt_num(value: float, decimals: int = 3) -> str:
     return text
 
 
+def anzeige_dezimalen(value: float, decimals: int) -> int:
+    """Nachkommastellen für die Anzeige: mindestens ``decimals``, kleine Werte mit 4 gültigen Ziffern."""
+    if not value or not math.isfinite(value):
+        return decimals
+    need = 3 - math.floor(math.log10(abs(value)))
+    return max(decimals, min(need, 8))
+
+
+def runden(value: float, decimals: int) -> float:
+    """Wert so runden, wie er im Eingabefeld angezeigt wird (übernommene/verknüpfte Werte)."""
+    return round(float(value), anzeige_dezimalen(float(value), decimals))
+
+
 def fmt_q(quantity, unit: str, decimals: int = 3) -> str:
     """Formatiert eine pint-Größe in der gewünschten Einheit, z. B. ``5,000 kN·m``."""
     value = quantity.to(unit).magnitude if unit else float(quantity)

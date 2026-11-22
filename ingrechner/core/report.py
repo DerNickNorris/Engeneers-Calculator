@@ -109,8 +109,15 @@ def head_table(meta: ProjectMeta, st, page_w: float) -> Table:
     return ht
 
 
+def _quelle(quellen: dict[str, str] | None, key: str) -> str:
+    if not quellen or key not in quellen:
+        return ""
+    return f"<br/><font size='7' color='#1f6fb2'>← aus {rich(quellen[key])}</font>"
+
+
 def calc_body(calc: Calculator, raw: dict[str, Any], result: CalcResult, st, page_w: float,
-              sketch_png: bytes | None = None, plot_png: bytes | None = None, prefix: str = "") -> list:
+              sketch_png: bytes | None = None, plot_png: bytes | None = None, prefix: str = "",
+              quellen: dict[str, str] | None = None) -> list:
     """Inhalt eines Rechnungsnachweises: Eingaben, Ergebnisse, Hinweise, Rechenweg, Diagramm.
 
     ``prefix`` nummeriert die Abschnitte (z. B. „3.“ → „3.1 Eingangswerte“ im Gesamtbericht).
@@ -131,7 +138,7 @@ def calc_body(calc: Calculator, raw: dict[str, Any], result: CalcResult, st, pag
             continue
         if isinstance(f, ChoiceField):
             rows.append([Paragraph(rich(f.label), st["cell"]), Paragraph("", st["cell"]),
-                         Paragraph(rich(f.label_for(merged[f.key])), st["cell"])])
+                         Paragraph(rich(f.label_for(merged[f.key])) + _quelle(quellen, f.key), st["cell"])])
         elif isinstance(f, TableField):
             trows, _ = f.parse(merged[f.key])
             head = " · ".join(f"{rich(c.label)} [{unit_html(c.unit)}]" if c.unit else rich(c.label) for c in f.columns)
@@ -145,7 +152,7 @@ def calc_body(calc: Calculator, raw: dict[str, Any], result: CalcResult, st, pag
             except (TypeError, ValueError):
                 val = f"<font color='#b3261e'>{rich(str(merged[f.key]))}</font>"
             rows.append([Paragraph(rich(f.label), st["cell"]), Paragraph(rich(f.symbol), st["cell"]),
-                         Paragraph(val, st["cell"])])
+                         Paragraph(val + _quelle(quellen, f.key), st["cell"])])
     if sketch_png:
         left_w = page_w * 0.58
         inputs_tbl = _table(rows, [left_w * 0.5, left_w * 0.18, left_w * 0.32])
@@ -214,7 +221,7 @@ def calc_body(calc: Calculator, raw: dict[str, Any], result: CalcResult, st, pag
 
 def build_pdf(path: str | Path, calc: Calculator, raw: dict[str, Any], result: CalcResult,
               meta: ProjectMeta, notiz: str = "", sketch_png: bytes | None = None,
-              plot_png: bytes | None = None, position: str = "") -> Path:
+              plot_png: bytes | None = None, position: str = "", quellen: dict[str, str] | None = None) -> Path:
     """Einzelner Rechnungsnachweis. ``position``: z. B. „Pos. 3 – Träger Achse B“."""
     _register_fonts()
     st = _styles()
@@ -234,7 +241,7 @@ def build_pdf(path: str | Path, calc: Calculator, raw: dict[str, Any], result: C
     if notiz.strip():
         story.append(Spacer(1, 2 * mm))
         story.append(Paragraph(f"<b>Notiz:</b> {rich(notiz)}", st["base"]))
-    story += calc_body(calc, raw, result, st, page_w, sketch_png, plot_png)
+    story += calc_body(calc, raw, result, st, page_w, sketch_png, plot_png, quellen=quellen)
 
     stamp = datetime.now().strftime("%d.%m.%Y %H:%M")
     footer_title = position or calc.title

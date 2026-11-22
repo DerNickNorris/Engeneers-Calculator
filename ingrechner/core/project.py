@@ -1,6 +1,7 @@
 """Projektdatei (*.irp, JSON): Kopfdaten + nummerierte Positionen (Berechnungen).
 
-Format-Version 2: beliebig viele Positionen, auch mehrere vom selben Rechner.
+Format-Version 2: beliebig viele Positionen, auch mehrere vom selben Rechner. Ab Programmversion 0.10
+optional ``links`` je Position (Verknüpfungen) – ältere Versionen ignorieren das Feld.
 Version-1-Dateien (eine Berechnung je Rechner) werden beim Laden übernommen.
 """
 
@@ -37,6 +38,8 @@ class Position:
     titel: str = ""                 # Bezeichnung, z. B. "Träger Achse B"
     inputs: dict[str, Any] = field(default_factory=dict)
     notiz: str = ""
+    # Verknüpfungen: Zielfeld -> {"pos": Quell-ID, "art": "ergebnis"|"eingabe", "key": Schlüssel}
+    links: dict[str, dict[str, str]] = field(default_factory=dict)
 
     def label(self, calc_title: str = "") -> str:
         name = self.titel.strip() or calc_title
@@ -98,7 +101,9 @@ class Project:
     def duplicate(self, pid: str) -> Position:
         src = self.get(pid)
         titel = f"{src.titel} (Kopie)" if src.titel else ""
-        return self.add_position(src.calc, deepcopy(src.inputs), src.notiz, titel=titel, after=pid)
+        pos = self.add_position(src.calc, deepcopy(src.inputs), src.notiz, titel=titel, after=pid)
+        pos.links = deepcopy(src.links)
+        return pos
 
     def remove(self, pid: str) -> None:
         self.positions = [p for p in self.positions if p.id != pid]
@@ -118,11 +123,11 @@ class Project:
         self.dirty = True
 
     def update(self, pid: str, *, inputs: dict[str, Any] | None = None, notiz: str | None = None,
-               nr: str | None = None, titel: str | None = None) -> None:
+               nr: str | None = None, titel: str | None = None, links: dict | None = None) -> None:
         p = self.get(pid)
-        for attr, value in (("inputs", inputs), ("notiz", notiz), ("nr", nr), ("titel", titel)):
+        for attr, value in (("inputs", inputs), ("notiz", notiz), ("nr", nr), ("titel", titel), ("links", links)):
             if value is not None and getattr(p, attr) != value:
-                setattr(p, attr, dict(value) if attr == "inputs" else value)
+                setattr(p, attr, deepcopy(value) if attr in ("inputs", "links") else value)
                 self.dirty = True
 
     # ------------------------------------------------------------- Datei

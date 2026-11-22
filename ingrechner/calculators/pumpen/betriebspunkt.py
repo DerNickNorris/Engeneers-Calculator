@@ -134,6 +134,7 @@ class Betriebspunkt(Calculator):
 
         self.result("Qb", "Förderstrom im Betriebspunkt", "V̇_B", Q_(Qb, "m**3/hour"), "m**3/hour", 3, highlight=True)
         self.result("Hb", "Förderhöhe im Betriebspunkt", "H_B", Q_(Hb, "m"), "m", 2, highlight=True)
+        self.result("H0", "Nullförderhöhe (Schaltung, n)", "H₀", Q_(float(sch.H(0.0)), "m"), "m", 2)
         self.result("abw", "Abweichung vom Auslegungsstrom", "V̇_B/V̇_A", Q_(Qb / Va * 100, "percent"), "percent", 1)
         self.result("n", "Relative Drehzahl", "n/n_N", Q_(n * 100, "percent"), "percent", 1,
                     highlight=inp["drehzahl"] == "anpassen")

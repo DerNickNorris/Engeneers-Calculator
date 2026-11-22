@@ -18,6 +18,7 @@ from reportlab.platypus.tableofcontents import TableOfContents
 from .. import APP_NAME, __version__
 from .model import Calculator, CalcResult, Level
 from .project import Position, Project
+from .links import beschreibung
 from .report import (BLUE, BLUE_LIGHT, GREY, GRID, WARN, _register_fonts, _styles, calc_body,
                      plot_png)
 from .textfmt import rich
@@ -44,6 +45,7 @@ class PositionResult:
     position: Position
     calc: Calculator | None
     result: CalcResult | None
+    inputs: dict | None = None      # Eingaben mit übernommenen (verknüpften) Werten
 
     @property
     def status(self) -> tuple[str, str]:
@@ -61,7 +63,13 @@ class PositionResult:
 
 def evaluate(project: Project, calcs: dict[str, type[Calculator]],
              position_ids: list[str] | None = None) -> list[PositionResult]:
-    """Rechnet alle (bzw. die gewählten) Positionen aus den gespeicherten Eingaben neu."""
+    """Rechnet alle (bzw. die gewählten) Positionen aus den gespeicherten Eingaben neu.
+
+    Verknüpfte Felder erhalten den aktuellen Wert ihrer Quellposition.
+    """
+    from .links import aufloesen
+
+    res = aufloesen(project, calcs)
     out = []
     for pos in project.positions:
         if position_ids is not None and pos.id not in position_ids:
@@ -71,7 +79,8 @@ def evaluate(project: Project, calcs: dict[str, type[Calculator]],
             out.append(PositionResult(pos, None, None))
             continue
         calc = cls()
-        out.append(PositionResult(pos, calc, calc.run(pos.inputs)))
+        inputs = res.inputs.get(pos.id, pos.inputs)
+        out.append(PositionResult(pos, calc, res.results.get(pos.id) or calc.run(inputs), inputs))
     return out
 
 
@@ -231,14 +240,16 @@ def build_project_report(path: str | Path, project: Project, calcs: dict[str, ty
         story.append(Paragraph(f"{rich(calc.title)} · {calc.category} · {rich(calc.norm)}", st["small"]))
         if p.notiz.strip():
             story += [Spacer(1, 2 * mm), Paragraph(f"<b>Notiz:</b> {rich(p.notiz)}", st["base"])]
-        raw = calc.defaults() | p.inputs
+        inputs = pr.inputs if pr.inputs is not None else p.inputs
+        raw = calc.defaults() | inputs
+        quellen = {k: beschreibung(project, calcs, lk) for k, lk in p.links.items()}
         sketch = None
         if opts.skizzen and sketch_png_fn is not None:
             svg = calc.sketch_svg(raw)
             sketch = sketch_png_fn(svg) if svg else None
         plot = plot_png(calc, raw, pr.result) if opts.diagramme and pr.result.ok else None
         prefix = f"{p.nr}." if p.nr else f"{i}."
-        story += calc_body(calc, p.inputs, pr.result, st, page_w, sketch, plot, prefix=prefix)
+        story += calc_body(calc, inputs, pr.result, st, page_w, sketch, plot, prefix=prefix, quellen=quellen)
         if i < len(results):
             story.append(PageBreak())
 

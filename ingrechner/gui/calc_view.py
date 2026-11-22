@@ -11,12 +11,12 @@ from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QFormLayout, QHBoxLayout, QHeaderView,
                                QLabel, QLineEdit, QPlainTextEdit, QPushButton, QScrollArea,
                                QSizePolicy, QSplitter, QTableWidget, QTableWidgetItem, QTabWidget,
-                               QTextBrowser, QVBoxLayout, QWidget)
+                               QTextBrowser, QToolButton, QVBoxLayout, QWidget)
 
 from ingrechner.core.model import Calculator, CalcResult, ChoiceField, NumberField, TableField
 from ingrechner.core.plotstyle import apply_style
 from ingrechner.core.textfmt import rich
-from ingrechner.core.units import fmt_num, parse_num, pretty_unit
+from ingrechner.core.units import anzeige_dezimalen, fmt_num, parse_num, pretty_unit
 
 from .theme import C
 from .widgets import Card, MessageBox, SketchWidget, TableEditor
@@ -26,6 +26,9 @@ class CalculatorView(QWidget):
     changed = Signal()      # Eingaben geändert
     computed = Signal()     # neu berechnet
     meta_changed = Signal() # Positionsnummer/Bezeichnung geändert
+    link_requested = Signal(str)     # Feld soll mit einer anderen Position verknüpft werden
+    unlink_requested = Signal(str)   # Verknüpfung des Felds lösen
+    source_requested = Signal(str)   # Quellposition des Felds öffnen
 
     def __init__(self, calc: Calculator, parent: QWidget | None = None, context=None) -> None:
         super().__init__(parent)
@@ -37,6 +40,9 @@ class CalculatorView(QWidget):
         self._editors: dict[str, QLineEdit | QComboBox] = {}
         self._errors: dict[str, QLabel] = {}
         self._rows: dict[str, list[QWidget]] = {}
+        self._link_btns: dict[str, QToolButton] = {}
+        self._link_infos: dict[str, QLabel] = {}
+        self.links: dict[str, str] = {}          # Feld -> Beschreibung der Quelle („Pos. 1 · V̇_A“)
         self._build()
         self.set_values(calc.defaults())
 
@@ -237,7 +243,12 @@ class CalculatorView(QWidget):
                 editor.addItem(text, value)
             editor.currentIndexChanged.connect(self._on_choice)
             editor.setToolTip(f.tooltip)
-            field_widget = editor
+            row = QHBoxLayout()
+            row.setContentsMargins(0, 0, 0, 0)
+            row.addWidget(editor, 1)
+            row.addWidget(self._link_button(f.key))
+            field_widget = QWidget()
+            field_widget.setLayout(row)
         else:
             editor = QLineEdit()
             editor.setAlignment(Qt.AlignRight)
@@ -256,21 +267,88 @@ class CalculatorView(QWidget):
             row.addWidget(sym)
             row.addWidget(editor, 1)
             row.addWidget(unit)
+            row.addWidget(self._link_button(f.key))
             field_widget = QWidget()
             field_widget.setLayout(row)
         err = QLabel()
         err.setObjectName("FieldError")
         err.setVisible(False)
+        info = QLabel()
+        info.setObjectName("LinkInfo")
+        info.setVisible(False)
+        info.setTextFormat(Qt.RichText)
+        info.setWordWrap(True)
+        self._link_infos[f.key] = info
         holder = QWidget()
         v = QVBoxLayout(holder)
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(2)
         v.addWidget(field_widget)
+        v.addWidget(info)
         v.addWidget(err)
         self.form.addRow(label, holder)
         self._editors[f.key] = editor
         self._errors[f.key] = err
         self._rows[f.key] = [label, holder]
+
+    # ------------------------------------------------------ Verknüpfung
+    def _link_button(self, key: str) -> QToolButton:
+        from .widgets import link_icon
+
+        b = QToolButton()
+        b.setObjectName("LinkButton")
+        b.setIcon(link_icon())
+        b.setAutoRaise(True)
+        b.setCursor(Qt.PointingHandCursor)
+        b.setToolTip("Wert aus einer anderen Position übernehmen (verknüpfen)")
+        b.clicked.connect(lambda _=False, k=key: self._link_menu(k))
+        self._link_btns[key] = b
+        return b
+
+    def _link_menu(self, key: str) -> None:
+        from PySide6.QtWidgets import QMenu
+
+        if self.position_id is None:
+            return
+        if key not in self.links:
+            self.link_requested.emit(key)
+            return
+        menu = QMenu(self)
+        menu.addAction("Quellposition öffnen", lambda: self.source_requested.emit(key))
+        menu.addAction("Andere Quelle wählen …", lambda: self.link_requested.emit(key))
+        menu.addSeparator()
+        menu.addAction("Verknüpfung lösen (Wert behalten)", lambda: self.unlink_requested.emit(key))
+        btn = self._link_btns[key]
+        menu.exec(btn.mapToGlobal(btn.rect().bottomLeft()))
+
+    def set_links(self, links: dict[str, str], fehler: dict[str, str] | None = None) -> None:
+        """Zeigt verknüpfte Felder an: Feld gesperrt, Quelle darunter, ggf. Fehler der Verknüpfung."""
+        fehler = fehler or {}
+        self.links = dict(links)
+        for key, ed in self._editors.items():
+            if key not in self._link_btns:
+                continue
+            linked = key in links
+            if isinstance(ed, QLineEdit):
+                ed.setReadOnly(linked)
+            else:
+                ed.setEnabled(not linked)
+            ed.setProperty("linked", linked)
+            ed.style().unpolish(ed)
+            ed.style().polish(ed)
+            btn = self._link_btns[key]
+            btn.setProperty("active", linked)
+            btn.style().unpolish(btn)
+            btn.style().polish(btn)
+            btn.setToolTip(f"Verknüpft mit {links[key]} – klicken für Optionen" if linked else
+                           "Wert aus einer anderen Position übernehmen (verknüpfen)")
+            info = self._link_infos[key]
+            if linked:
+                txt = f"↳ aus {rich(links[key])}"
+                if key in fehler:
+                    txt += f" – <span style='color:{C['error']}'>{rich(fehler[key])}</span>"
+                info.setText(txt)
+            info.setVisible(linked)
 
     # ------------------------------------------------------- Werkstoff
     def pick_material(self) -> None:
@@ -320,7 +398,14 @@ class CalculatorView(QWidget):
             elif isinstance(f, TableField):
                 ed.set_rows(merged[f.key])
             else:
-                ed.setText(fmt_num(float(merged[f.key]), f.decimals).replace(" ", ""))
+                v = float(merged[f.key])
+                dec = anzeige_dezimalen(v, f.decimals)
+                text = fmt_num(v, dec).replace(" ", "")
+                if dec > f.decimals and "," in text:    # zusätzliche Stellen nur, wenn sie etwas aussagen
+                    keep = len(text.split(",")[0]) + 1 + f.decimals
+                    text = text[:keep] + text[keep:].rstrip("0")
+                    text = text.rstrip(",")
+                ed.setText(text)
             ed.blockSignals(False)
         for key in self._editors:
             self._show_error(key, None)
