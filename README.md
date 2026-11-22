@@ -8,7 +8,7 @@ Systemskizze, Diagramm, PDF-Rechnungsnachweis und Excel/CSV-Export.
 > sind vor Verwendung in Nachweisen von fachkundiger Stelle gegen die jeweilige
 > Originalnorm zu prüfen.
 
-## Stand: Version 0.12.0
+## Stand: Version 0.13.0
 
 **Rechner (Phase 1 und 4)**
 
@@ -124,6 +124,13 @@ Positionen:
 
 Neue Kette **„Abwasserpumpwerk“**: Druckleitung → Betriebspunkt (mit Beispielkennlinie) → Pumpensumpf →
 Druckstoß → NPSH.
+
+**Firmenvorlage für PDF-Berichte (Version 0.13)** – *Extras › Firmenvorlage für Berichte* bzw.
+*Einstellungen › Firmenvorlage*: Firmenname, bis zu vier Zusatzzeilen, Logo (PNG/JPEG, links oder rechts),
+Akzentfarbe, Fußzeilenzusatz und Programmhinweis. Gilt für Einzelnachweis, Gesamtbericht (großer
+Briefkopf auf dem Deckblatt) und Besprechungsprotokoll. Die Vorlage ist eine JSON-Datei mit eingebettetem
+Logo – auf einem Netzlaufwerk abgelegt, nutzt das ganze Team denselben Briefkopf. „Vorschau-PDF öffnen“
+zeigt das Ergebnis vor dem Speichern.
 
 **Werkzeuge (Phase 2)**
 

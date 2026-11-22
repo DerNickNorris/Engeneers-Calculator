@@ -34,6 +34,100 @@ WARN_BG = colors.HexColor("#fff4e0")
 _FONTS_DONE = False
 
 
+# ----------------------------------------------------------- Firmenvorlage
+def akzent():
+    """Akzentfarbe der aktuellen Firmenvorlage (Standard: Dunkelblau)."""
+    from .briefkopf import aktuell
+
+    return colors.HexColor(aktuell().farbe_gueltig())
+
+
+def akzent_hell():
+    """Helle Variante der Akzentfarbe (10 % Deckung auf Weiß) für Tabellenköpfe."""
+    a = akzent()
+    return colors.Color(1 - 0.1 * (1 - a.red), 1 - 0.1 * (1 - a.green), 1 - 0.1 * (1 - a.blue))
+
+
+def rand_oben() -> float:
+    """Oberer Seitenrand – größer, wenn ein Briefkopf gedruckt wird."""
+    from .briefkopf import aktuell
+
+    return 34 * mm if aktuell().hat_briefkopf else 16 * mm
+
+
+def fusszeile_text(titel: str, stamp: str) -> str:
+    from .briefkopf import aktuell
+
+    v = aktuell()
+    teile = [titel, f"erstellt {stamp}"]
+    if v.fusszeile.strip():
+        teile.append(v.fusszeile.strip())
+    if v.programmhinweis:
+        teile.append(f"{APP_NAME} {__version__}")
+    return " · ".join(t for t in teile if t)
+
+
+def _logo_zeichnen(canvas, data: bytes, x: float, y_top: float, max_w: float, max_h: float, rechts: bool) -> float:
+    from reportlab.lib.utils import ImageReader
+
+    try:
+        img = ImageReader(io.BytesIO(data))
+        iw, ih = img.getSize()
+    except Exception:  # noqa: BLE001 - defektes Logo nicht den Bericht abbrechen lassen
+        return 0.0
+    scale = min(max_w / iw, max_h / ih)
+    w, h = iw * scale, ih * scale
+    canvas.drawImage(img, x - w if rechts else x, y_top - h, w, h, mask="auto")
+    return w
+
+
+def briefkopf_zeichnen(canvas, gross: bool = False) -> None:
+    """Briefkopf (Logo, Firma, Zusatz, Akzentlinie) am oberen Seitenrand; ``gross`` für Deckblätter."""
+    from .briefkopf import aktuell
+
+    v = aktuell()
+    if not v.hat_briefkopf:
+        return
+    left, right = 18 * mm, A4[0] - 18 * mm
+    top = A4[1] - 10 * mm
+    max_h = (26 if gross else 16) * mm
+    logo_rechts = v.logo_pos != "links"
+    logo_w = 0.0
+    if v.logo:
+        logo_w = _logo_zeichnen(canvas, v.logo, right if logo_rechts else left, top, 60 * mm, max_h, logo_rechts)
+    x_text = left if logo_rechts else left + logo_w + 6 * mm
+    y = top - 4.2 * mm
+    if v.firma.strip():
+        canvas.setFont("DejaVu-Bold", 12 if gross else 10)
+        canvas.setFillColor(akzent())
+        canvas.drawString(x_text, y, v.firma.strip())
+        y -= (5.2 if gross else 4.4) * mm
+    canvas.setFont("DejaVu", 8 if gross else 7)
+    canvas.setFillColor(GREY)
+    for line in v.zusatz.splitlines()[:4]:
+        canvas.drawString(x_text, y, line.strip())
+        y -= (3.8 if gross else 3.2) * mm
+    line_y = A4[1] - 10 * mm - max_h - 2.5 * mm
+    canvas.setStrokeColor(akzent())
+    canvas.setLineWidth(0.9)
+    canvas.line(left, line_y, right, line_y)
+
+
+def seitenrahmen(canvas, links: str, rechts: str, briefkopf: bool = True) -> None:
+    """Fußzeile (Linie, Texte) und – mit Firmenvorlage – Briefkopf einer Seite zeichnen."""
+    canvas.saveState()
+    if briefkopf:
+        briefkopf_zeichnen(canvas)
+    canvas.setFont("DejaVu", 7.5)
+    canvas.setFillColor(GREY)
+    canvas.setStrokeColor(GRID)
+    canvas.setLineWidth(1)
+    canvas.line(18 * mm, 14 * mm, A4[0] - 18 * mm, 14 * mm)
+    canvas.drawString(18 * mm, 10 * mm, links)
+    canvas.drawRightString(A4[0] - 18 * mm, 10 * mm, rechts)
+    canvas.restoreState()
+
+
 def _register_fonts() -> None:
     """DejaVu Sans kommt mit matplotlib mit und enthält σ, λ, Δ, √ usw."""
     global _FONTS_DONE
@@ -56,12 +150,12 @@ def _styles() -> dict[str, ParagraphStyle]:
         "base": base,
         "small": ParagraphStyle("small", parent=base, fontSize=7.5, leading=10, textColor=GREY),
         "title": ParagraphStyle("title", parent=base, fontName="DejaVu-Bold", fontSize=15, leading=19,
-                                textColor=BLUE, spaceAfter=2),
+                                textColor=akzent(), spaceAfter=2),
         "h2": ParagraphStyle("h2", parent=base, fontName="DejaVu-Bold", fontSize=10.5, leading=14,
-                             textColor=BLUE, spaceBefore=8, spaceAfter=4),
+                             textColor=akzent(), spaceBefore=8, spaceAfter=4),
         "cell": ParagraphStyle("cell", parent=base, fontSize=8.5, leading=11),
         "cellb": ParagraphStyle("cellb", parent=base, fontName="DejaVu-Bold", fontSize=8.5, leading=11),
-        "formula": ParagraphStyle("formula", parent=base, fontSize=8.5, leading=11, textColor=BLUE),
+        "formula": ParagraphStyle("formula", parent=base, fontSize=8.5, leading=11, textColor=akzent()),
     }
 
 
@@ -75,7 +169,7 @@ def _table(rows, widths, header=True, highlight_rows=()) -> Table:
         ("LEFTPADDING", (0, 0), (-1, -1), 4),
     ]
     if header:
-        style += [("BACKGROUND", (0, 0), (-1, 0), BLUE_LIGHT), ("LINEBELOW", (0, 0), (-1, 0), 0.8, BLUE)]
+        style += [("BACKGROUND", (0, 0), (-1, 0), akzent_hell()), ("LINEBELOW", (0, 0), (-1, 0), 0.8, akzent())]
     for r in highlight_rows:
         style.append(("BACKGROUND", (0, r), (-1, r), colors.HexColor("#f3f7fb")))
     t.setStyle(TableStyle(style))
@@ -101,8 +195,8 @@ def head_table(meta: ProjectMeta, st, page_w: float) -> Table:
     ]
     ht = Table(head, colWidths=[24 * mm, page_w / 2 - 24 * mm, 26 * mm, page_w / 2 - 26 * mm])
     ht.setStyle(TableStyle([
-        ("BOX", (0, 0), (-1, -1), 0.8, BLUE), ("INNERGRID", (0, 0), (-1, -1), 0.4, GRID),
-        ("BACKGROUND", (0, 0), (0, -1), BLUE_LIGHT), ("BACKGROUND", (2, 0), (2, -1), BLUE_LIGHT),
+        ("BOX", (0, 0), (-1, -1), 0.8, akzent()), ("INNERGRID", (0, 0), (-1, -1), 0.4, GRID),
+        ("BACKGROUND", (0, 0), (0, -1), akzent_hell()), ("BACKGROUND", (2, 0), (2, -1), akzent_hell()),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("TOPPADDING", (0, 0), (-1, -1), 3),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
     ]))
@@ -247,17 +341,10 @@ def build_pdf(path: str | Path, calc: Calculator, raw: dict[str, Any], result: C
     footer_title = position or calc.title
 
     def on_page(canvas, doc):
-        canvas.saveState()
-        canvas.setFont("DejaVu", 7.5)
-        canvas.setFillColor(GREY)
-        canvas.setStrokeColor(GRID)
-        canvas.line(18 * mm, 14 * mm, A4[0] - 18 * mm, 14 * mm)
-        canvas.drawString(18 * mm, 10 * mm, f"{APP_NAME} {__version__} · {footer_title} · erstellt {stamp}")
-        canvas.drawRightString(A4[0] - 18 * mm, 10 * mm, f"Seite {doc.page}")
-        canvas.restoreState()
+        seitenrahmen(canvas, fusszeile_text(footer_title, stamp), f"Seite {doc.page}")
 
     doc = SimpleDocTemplate(str(path), pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm,
-                            topMargin=16 * mm, bottomMargin=20 * mm, title=footer_title,
+                            topMargin=rand_oben(), bottomMargin=20 * mm, title=footer_title,
                             author=meta.bearbeiter or APP_NAME, subject=meta.projekt)
     doc.build(story, onFirstPage=on_page, onLaterPages=on_page)
     return path

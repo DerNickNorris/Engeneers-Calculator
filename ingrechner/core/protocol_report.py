@@ -13,7 +13,7 @@ from reportlab.platypus import (KeepTogether, Paragraph, SimpleDocTemplate, Spac
 
 from .. import APP_NAME, __version__
 from .protocols import AUFGABE_ART, HEADER_TYPES, Protocol
-from .report import BLUE, BLUE_LIGHT, GREY, GRID, _register_fonts, _styles
+from .report import GREY, GRID, _register_fonts, _styles, akzent, akzent_hell, fusszeile_text, rand_oben, seitenrahmen
 from .textfmt import rich
 
 DONE = colors.HexColor("#2e7d4f")
@@ -52,8 +52,8 @@ def build_protocol_pdf(path: str | Path, proto: Protocol) -> Path:
             rows[-1] += [""] * (4 - len(rows[-1]))
         lw = 40 * mm
         t = Table(rows, colWidths=[lw, page_w / 2 - lw, lw, page_w / 2 - lw])
-        style = [("BOX", (0, 0), (-1, -1), 0.8, BLUE), ("INNERGRID", (0, 0), (-1, -1), 0.4, GRID),
-                 ("BACKGROUND", (0, 0), (0, -1), BLUE_LIGHT), ("BACKGROUND", (2, 0), (2, -1), BLUE_LIGHT),
+        style = [("BOX", (0, 0), (-1, -1), 0.8, akzent()), ("INNERGRID", (0, 0), (-1, -1), 0.4, GRID),
+                 ("BACKGROUND", (0, 0), (0, -1), akzent_hell()), ("BACKGROUND", (2, 0), (2, -1), akzent_hell()),
                  ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("TOPPADDING", (0, 0), (-1, -1), 3),
                  ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]
         t.setStyle(TableStyle(style))
@@ -75,8 +75,8 @@ def build_protocol_pdf(path: str | Path, proto: Protocol) -> Path:
             if len(rows) == 1:
                 rows.append([Paragraph("–", st["cell"]), "", "", ""])
             t = Table(rows, colWidths=[page_w * 0.3, page_w * 0.42, page_w * 0.1, page_w * 0.18], repeatRows=1)
-            t.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), BLUE_LIGHT),
-                                   ("LINEBELOW", (0, 0), (-1, 0), 0.8, BLUE),
+            t.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), akzent_hell()),
+                                   ("LINEBELOW", (0, 0), (-1, 0), 0.8, akzent()),
                                    ("LINEBELOW", (0, 1), (-1, -1), 0.4, GRID),
                                    ("VALIGN", (0, 0), (-1, -1), "TOP")]))
             story += [heading, t]
@@ -115,7 +115,7 @@ def build_protocol_pdf(path: str | Path, proto: Protocol) -> Path:
                 rows.append([Paragraph("–", st["cell"]), "", "", "", "", ""])
             t = Table(rows, colWidths=[19 * mm, 9 * mm, page_w - 87 * mm, 18 * mm, 22 * mm, 19 * mm],
                       repeatRows=1)
-            style = [("BACKGROUND", (0, 0), (-1, 0), BLUE_LIGHT), ("LINEBELOW", (0, 0), (-1, 0), 0.8, BLUE),
+            style = [("BACKGROUND", (0, 0), (-1, 0), akzent_hell()), ("LINEBELOW", (0, 0), (-1, 0), 0.8, akzent()),
                      ("LINEBELOW", (0, 1), (-1, -1), 0.4, GRID), ("VALIGN", (0, 0), (-1, -1), "TOP")]
             for i, task in enumerate(val, 1):
                 color = DONE if task.get("status") == "erledigt" else OPEN if task.get("art", "A") in ("A", "F") else GREY
@@ -141,16 +141,9 @@ def build_protocol_pdf(path: str | Path, proto: Protocol) -> Path:
     title = proto.title
 
     def on_page(canvas, doc):
-        canvas.saveState()
-        canvas.setFont("DejaVu", 7.5)
-        canvas.setFillColor(GREY)
-        canvas.setStrokeColor(GRID)
-        canvas.line(18 * mm, 14 * mm, A4[0] - 18 * mm, 14 * mm)
-        canvas.drawString(18 * mm, 10 * mm, f"{title} · erstellt {stamp} · {APP_NAME} {__version__}")
-        canvas.drawRightString(A4[0] - 18 * mm, 10 * mm, f"Seite {doc.page}")
-        canvas.restoreState()
+        seitenrahmen(canvas, fusszeile_text(title, stamp), f"Seite {doc.page}")
 
     doc = SimpleDocTemplate(str(path), pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm,
-                            topMargin=16 * mm, bottomMargin=20 * mm, title=title, subject=proto.subject)
+                            topMargin=rand_oben(), bottomMargin=20 * mm, title=title, subject=proto.subject)
     doc.build(story, onFirstPage=on_page, onLaterPages=on_page)
     return path
