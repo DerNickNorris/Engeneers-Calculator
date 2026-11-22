@@ -23,6 +23,7 @@ class PositionsPanel(QWidget):
     duplicate_requested = Signal(str)
     delete_requested = Signal(str)
     move_requested = Signal(str, int)
+    chain_requested = Signal(int)         # Index in links.KETTEN
 
     def __init__(self, calc_classes, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -67,6 +68,13 @@ class PositionsPanel(QWidget):
             sub = cats.get(cls.category) or menu.addMenu(cls.category)
             cats[cls.category] = sub
             sub.addAction(cls.title, lambda cid=cls.id: self.add_requested.emit(cid))
+        from ingrechner.core.links import KETTEN
+
+        menu.addSeparator()
+        for i, k in enumerate(KETTEN):
+            a = menu.addAction(f"{k.titel} anlegen (verknüpft) …", lambda i=i: self.chain_requested.emit(i))
+            a.setToolTip(k.beschreibung)
+        menu.setToolTipsVisible(True)
         self.btn_add.setMenu(menu)
         row.addWidget(self.btn_add)
         for attr, text, tip, slot in (
@@ -103,12 +111,13 @@ class PositionsPanel(QWidget):
         for p in project.positions:
             calc_title = self.calc_titles.get(p.calc, f"unbekannter Rechner ({p.calc})")
             name = p.titel.strip() or calc_title
-            text = f"{p.nr + '  ' if p.nr else ''}{name}"
+            text = f"{p.nr + '  ' if p.nr else ''}{name}" + ("  ⇠" if p.links else "")
             if p.titel.strip():
                 text += f"\n      {calc_title}"
             it = QListWidgetItem(text)
             it.setData(ROLE_PID, p.id)
-            it.setToolTip(f"{p.label(calc_title)}\n{calc_title}" + (f"\n{p.notiz}" if p.notiz else ""))
+            it.setToolTip(f"{p.label(calc_title)}\n{calc_title}" + (f"\n{p.notiz}" if p.notiz else "")
+                          + (f"\n⇠ {len(p.links)} verknüpfte Eingabe(n)" if p.links else ""))
             if p.calc not in self.calc_titles:
                 it.setForeground(Qt.red)
             self.list.addItem(it)

@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (QFileDialog, QHBoxLayout, QLabel, QLineEdit, QMai
                                QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from ingrechner import APP_NAME, __version__
+from ingrechner.core import links as lk
 from ingrechner.core import registry
 from ingrechner.core.export import export_csv, export_xlsx
 from ingrechner.core.project import FILE_SUFFIX, Project
@@ -95,6 +96,7 @@ class MainWindow(QMainWindow):
         self.positions.duplicate_requested.connect(self.duplicate_position)
         self.positions.delete_requested.connect(self.delete_position)
         self.positions.move_requested.connect(self.move_position)
+        self.positions.chain_requested.connect(self.create_chain)
 
         self.tree = QTreeWidget()
         self.tree.setHeaderHidden(True)
@@ -218,6 +220,8 @@ class MainWindow(QMainWindow):
                             "Alle Positionen in einem PDF mit Deckblatt und Inhaltsverzeichnis")
         self.a_xlsx = act("Export Excel …", lambda: self.export_table("xlsx"), "Ctrl+E")
         self.a_csv = act("Export CSV …", lambda: self.export_table("csv"))
+        self.a_recalc = act("Alles neu berechnen", self.recalc_all, "F9",
+                            "Verknüpfte Werte aktualisieren und alle geöffneten Positionen neu berechnen")
         self.a_quit = act("Beenden", self.close, QKeySequence.Quit)
         self.a_search = act("Suchen", self._focus_search, "Ctrl+K")
         self.addAction(self.a_search)
@@ -227,6 +231,9 @@ class MainWindow(QMainWindow):
                   self.a_pdf, self.a_report, self.a_xlsx, self.a_csv, None, self.a_quit):
             m.addSeparator() if a is None else m.addAction(a)
         x = self.menuBar().addMenu("E&xtras")
+        x.addAction(self.a_recalc)
+        x.addAction(act("Mediendatenbank", lambda: self.open_tool("tool.medien")))
+        x.addSeparator()
         x.addAction(act("Einstellungen …", self.edit_settings, QKeySequence.Preferences))
         h = self.menuBar().addMenu("&Hilfe")
         h.addAction(act("Nach Updates suchen …", self.check_updates_now))
@@ -237,7 +244,7 @@ class MainWindow(QMainWindow):
         tb.setMovable(False)
         tb.setToolButtonStyle(Qt.ToolButtonTextOnly)
         for a in (self.a_new, self.a_open, self.a_save, None, self.a_meta, None, self.a_pdf, self.a_report,
-                  self.a_xlsx):
+                  self.a_xlsx, None, self.a_recalc):
             tb.addSeparator() if a is None else tb.addAction(a)
         self.addToolBar(tb)
         self._update_actions()
@@ -311,8 +318,12 @@ class MainWindow(QMainWindow):
             view.changed.connect(lambda v=view: self._on_view_changed(v))
             view.computed.connect(lambda v=view: self._on_view_changed(v))
             view.meta_changed.connect(lambda v=view: self._on_meta_changed(v))
+            view.link_requested.connect(lambda k, v=view: self.link_field(v, k))
+            view.unlink_requested.connect(lambda k, v=view: self.unlink_field(v, k))
+            view.source_requested.connect(lambda k, v=view: self._open_source(v, k))
             self.views[key] = view
             self.stack.addWidget(view)
+            self._apply_links(view)
         self.stack.setCurrentWidget(view)
         self._last_pos[view.calc.id] = pid
         self.positions.select(pid)
@@ -349,6 +360,14 @@ class MainWindow(QMainWindow):
             self.stack.removeWidget(view)
             view.deleteLater()
         self.project.remove(pid)
+        geloest = lk.loesen_fuer_quelle(self.project, pid)
+        for tpid in {t for t, _ in geloest}:
+            v = self.views.get(f"pos:{tpid}")
+            if isinstance(v, CalculatorView):
+                self._apply_links(v)
+        if geloest:
+            self.statusBar().showMessage(f"{len(geloest)} Verknüpfung(en) auf die gelöschte Position wurden gelöst "
+                                         "(Werte bleiben erhalten).", 8000)
         remaining = self.project.positions
         nxt = remaining[min(idx, len(remaining) - 1)].id if remaining else None
         self.positions.refresh(self.project, nxt)
@@ -384,7 +403,98 @@ class MainWindow(QMainWindow):
 
     def _on_view_changed(self, view: CalculatorView) -> None:
         self._sync_view(view)
+        if view.position_id is not None and lk.abhaengige(self.project, view.position_id):
+            self._propagate()
         self._update_title()
+
+    # ------------------------------------------------------ Verknüpfungen
+    def _apply_links(self, view: CalculatorView, res: lk.Aufloesung | None = None) -> bool:
+        """Übernimmt verknüpfte Werte in die Ansicht; True, wenn sich Werte geändert haben."""
+        pid = view.position_id
+        if pid is None:
+            return False
+        pos = self.project.get(pid)
+        texts = {k: lk.beschreibung(self.project, self.calc_by_id, link) for k, link in pos.links.items()}
+        if not pos.links:
+            view.set_links({})
+            return False
+        res = res or lk.aufloesen(self.project, self.calc_by_id, nur=pid)
+        fehler = res.fehler.get(pid, {})
+        neu = {k: res.inputs[pid][k] for k in pos.links if pid in res.inputs and k in res.inputs[pid]
+               and k not in fehler}
+        aktuell = view.valid_values()
+        changed = any(aktuell.get(k) != v for k, v in neu.items())
+        if changed:
+            view.set_values(aktuell | neu)
+            self.project.update(pid, inputs=view.valid_values())
+        view.set_links(texts, fehler)
+        return changed
+
+    def _propagate(self) -> None:
+        """Verknüpfte Werte im ganzen Projekt nachführen; geöffnete Ansichten werden als veraltet markiert."""
+        lk.uebernehmen(self.project, self.calc_by_id)
+        res = lk.aufloesen(self.project, self.calc_by_id)
+        for v in self.views.values():
+            if isinstance(v, CalculatorView) and v.position_id is not None and v.links is not None:
+                if self.project.get(v.position_id).links:
+                    self._apply_links(v, res)
+
+    def link_field(self, view: CalculatorView, key: str) -> None:
+        from .link_dialog import LinkDialog
+
+        self._sync_views()
+        pid = view.position_id
+        kand = lk.kandidaten(self.project, self.calc_by_id, pid, key)
+        dlg = LinkDialog(view.calc.field(key).label, kand, self)
+        if not dlg.exec() or dlg.gewaehlt is None:
+            return
+        pos = self.project.get(pid)
+        self.project.update(pid, links=pos.links | {key: dlg.gewaehlt.link})
+        self._apply_links(view)
+        self.positions.refresh(self.project, pid)
+        self.statusBar().showMessage(f"{view.calc.field(key).label}: verknüpft mit "
+                                     f"{lk.beschreibung(self.project, self.calc_by_id, dlg.gewaehlt.link)}", 6000)
+        self._update_title()
+
+    def unlink_field(self, view: CalculatorView, key: str) -> None:
+        pos = self.project.get(view.position_id)
+        links = dict(pos.links)
+        links.pop(key, None)
+        self.project.update(pos.id, links=links)
+        self._apply_links(view)
+        self.positions.refresh(self.project, pos.id)
+        self._update_title()
+
+    def _open_source(self, view: CalculatorView, key: str) -> None:
+        link = self.project.get(view.position_id).links.get(key)
+        if link and any(p.id == link["pos"] for p in self.project.positions):
+            self.open_position(link["pos"])
+
+    def recalc_all(self) -> None:
+        """Verknüpfte Werte übernehmen und alle geöffneten Positionen in Abhängigkeitsreihenfolge rechnen."""
+        self._sync_views()
+        self._propagate()
+        order = lk.reihenfolge(self.project)
+        n = 0
+        for pid in order:
+            v = self.views.get(f"pos:{pid}")
+            if isinstance(v, CalculatorView):
+                v.compute()
+                n += 1
+        self.statusBar().showMessage(f"{n} geöffnete Position(en) neu berechnet; verknüpfte Werte aktualisiert.",
+                                     6000)
+
+    def create_chain(self, index: int) -> None:
+        kette = lk.KETTEN[index]
+        self._sync_views()
+        cur = self.current_view()
+        pids = lk.kette_anlegen(self.project, kette, after=cur.position_id if cur else None)
+        lk.uebernehmen(self.project, self.calc_by_id)
+        self.positions.refresh(self.project, pids[0])
+        self.open_position(pids[0])
+        self._update_title()
+        self.statusBar().showMessage(f"{kette.titel} mit {len(pids)} verknüpften Positionen angelegt: "
+                                     f"{kette.beschreibung}", 8000)
 
     def _on_meta_changed(self, view: CalculatorView) -> None:
         if view.position_id is None:
@@ -536,7 +646,8 @@ class MainWindow(QMainWindow):
         try:
             build_pdf(path, view.calc, raw, view.result, self.project.meta, view.notiz.toPlainText(),
                       svg_to_png(svg) if svg else None, plot_png(view.calc, raw, view.result),
-                      position=self._position_label(view))
+                      position=self._position_label(view),
+                      quellen={k: v for k, v in view.links.items()})
         except OSError as exc:
             QMessageBox.critical(self, "Fehler", f"PDF konnte nicht geschrieben werden:\n{exc}")
             return

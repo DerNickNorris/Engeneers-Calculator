@@ -8,7 +8,7 @@ Systemskizze, Diagramm, PDF-Rechnungsnachweis und Excel/CSV-Export.
 > sind vor Verwendung in Nachweisen von fachkundiger Stelle gegen die jeweilige
 > Originalnorm zu prüfen.
 
-## Stand: Version 0.9.2
+## Stand: Version 0.10.0
 
 **Rechner (Phase 1 und 4)**
 
@@ -89,6 +89,18 @@ Druckverlust Rohrleitung, Pumpen (Flüssigkeiten), Wärmemenge und Wärmetausche
 | Lebensmittel | Speiseöl, Speisefett geschmolzen (ab 45 °C) | Ubbelohde-Walther |
 | Gase | Luft, Stickstoff, CO₂, Erdgas H/L, Klärgas 60/65 % CH₄ | ideales Gemisch mit Realgasfaktor (Virialansatz), Sutherland-Viskosität; Druck als Eingabe |
 | Schmierfette | NLGI 000–2 | nur Kennwerte, keine Strömungsrechnung |
+
+**Verknüpfung von Positionen (Version 0.10)** – Eingabefelder übernehmen Ergebnisse oder Eingaben anderer
+Positionen:
+
+- Kettensymbol neben jedem Feld › Quelle wählen (nur passende Einheiten, keine Kreisbezüge). Das Feld
+  wird gesperrt und zeigt „↳ aus Pos. 1 · V̇_A“.
+- Ändert sich die Quelle, werden die abhängigen Positionen nachgeführt und als „veraltet“ markiert;
+  **F9 / „Alles neu berechnen“** rechnet die geöffneten Positionen in der richtigen Reihenfolge.
+- **＋ Neu › Pumpenkette anlegen** erzeugt Auslegung → Betriebspunkt → Leistung → Energiekosten → NPSH mit
+  allen Verknüpfungen, einschließlich Medium und Temperatur.
+- Im PDF-Bericht steht bei verknüpften Werten die Quelle. Projektdateien bleiben mit älteren Versionen
+  lesbar (dort ohne Verknüpfungen, mit den zuletzt übernommenen Werten).
 
 **Werkzeuge (Phase 2)**
 

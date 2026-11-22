@@ -462,3 +462,48 @@ def test_mediendatenbank(window):
     view.search.setText("schlamm")
     assert view.current.id.startswith("klaerschlamm")
     view.search.clear()
+
+
+def test_verknuepfung_in_der_oberflaeche(window, monkeypatch):
+    from ingrechner.gui import link_dialog
+
+    window.project.positions.clear()
+    window._reset_views()
+    window.create_chain(0)
+    a, b = window.project.positions[0].id, window.project.positions[1].id
+    vb = window.open_position(b)
+    assert set(vb.links) == {"Va", "Ha", "Hs", "rho"}
+    assert vb._editors["Va"].isReadOnly() and vb._link_infos["Va"].isVisibleTo(vb)
+    assert vb.compute().ok
+
+    # Quelle ändern → Ziel wird nachgeführt und als veraltet markiert
+    va = window.open_position(a)
+    old = float(vb._editors["Va"].text().replace(",", "."))
+    va.set_values(va.valid_values() | {"P": 160})
+    va.changed.emit()
+    assert float(vb._editors["Va"].text().replace(",", ".")) == pytest.approx(2 * old, rel=1e-3)
+    assert vb.stale_label.isVisibleTo(vb)
+
+    # Verknüpfung lösen und per Dialog neu setzen
+    window.unlink_field(vb, "Va")
+    assert "Va" not in vb.links and not vb._editors["Va"].isReadOnly()
+
+    def fake_exec(self):
+        self.gewaehlt = next(k for k in self.kandidaten if k.link["key"] == "V")
+        return True
+    monkeypatch.setattr(link_dialog.LinkDialog, "exec", fake_exec)
+    window.link_field(vb, "Va")
+    assert window.project.get(b).links["Va"] == {"pos": a, "art": "ergebnis", "key": "V"}
+
+    window.recalc_all()
+    assert vb.result is not None and vb.result.ok
+
+    # Quelle löschen → Verknüpfungen werden gelöst, Werte bleiben
+    monkeypatch.setattr("PySide6.QtWidgets.QMessageBox.question", lambda *a, **k: 16384)   # Yes
+    wert = vb._editors["Va"].text()
+    window.delete_position(a)
+    assert not window.project.get(b).links.get("Va") and vb._editors["Va"].text() == wert
+    window.project.dirty = False
+    for v in window.views.values():
+        if hasattr(v, "dirty"):
+            v.dirty = False
