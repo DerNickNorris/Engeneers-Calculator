@@ -16,8 +16,8 @@ _SUPERSCRIPT = {"2": "²", "3": "³", "4": "⁴", "-1": "⁻¹", "-2": "⁻²"}
 
 def _kompakt(text: str) -> str:
     """Übliche Kurzformen: kW·h → kWh, EUR → €, year → a."""
-    return (text.replace("(kW·h)", "kWh").replace("kW·h", "kWh").replace("EUR", "€").replace("year", "a")
-            .replace("tonne", "t"))
+    return (text.replace("(kW·h)", "kWh").replace("kW·h", "kWh").replace("MW·h", "MWh").replace("EUR", "€").replace("year", "a")
+            .replace("tonne", "t").replace("day", "d"))
 
 
 def pretty_unit(unit: str) -> str:
@@ -28,7 +28,7 @@ def pretty_unit(unit: str) -> str:
     for exp, sup in sorted(_SUPERSCRIPT.items(), key=lambda kv: -len(kv[0])):
         text = text.replace(f"**{exp}", sup)
     text = text.replace(" * ", "·").replace("*", "·")
-    text = text.replace("milliohm", "mΩ").replace("ohm", "Ω").replace("degC", "°C").replace("percent", "%").replace("degree", "°").replace("microfarad", "µF").replace("hour", "h").replace("liter", "l").replace("minute", "min")
+    text = text.replace("milliohm", "mΩ").replace("ohm", "Ω").replace("degC", "°C").replace("percent", "%").replace("degree", "°").replace("microfarad", "µF").replace("hour", "h").replace("liter", "l").replace("minute", "min").replace("second", "s")
     return _kompakt(text)
 
 
@@ -40,7 +40,7 @@ def unit_html(unit: str) -> str:
     for exp in ("-2", "-1", "4", "3", "2"):
         text = text.replace(f"**{exp}", f"<super>{exp.replace('-', '−')}</super>")
     text = text.replace(" * ", "·").replace("*", "·")
-    text = text.replace("milliohm", "mΩ").replace("ohm", "Ω").replace("degC", "°C").replace("percent", "%").replace("degree", "°").replace("microfarad", "µF").replace("hour", "h").replace("liter", "l").replace("minute", "min")
+    text = text.replace("milliohm", "mΩ").replace("ohm", "Ω").replace("degC", "°C").replace("percent", "%").replace("degree", "°").replace("microfarad", "µF").replace("hour", "h").replace("liter", "l").replace("minute", "min").replace("second", "s")
     return _kompakt(text)
 
 

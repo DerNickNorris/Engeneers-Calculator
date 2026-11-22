@@ -8,7 +8,7 @@ Systemskizze, Diagramm, PDF-Rechnungsnachweis und Excel/CSV-Export.
 > sind vor Verwendung in Nachweisen von fachkundiger Stelle gegen die jeweilige
 > Originalnorm zu prüfen.
 
-## Stand: Version 0.11.0
+## Stand: Version 0.12.0
 
 **Rechner (Phase 1 und 4)**
 
@@ -111,6 +111,19 @@ Positionen:
   Medium aus der Mediendatenbank.
 - Ergebnis Förderstrom und Förderhöhe – neue Kette **„Rohrnetz + Pumpenkette“** verknüpft den Strang mit
   Betriebspunkt, Leistung, Energiekosten und NPSH.
+
+**Abwasser / Klärwerk (Version 0.12)**
+
+| Rechner | Inhalt |
+|---------|--------|
+| Pumpensumpf – Nutzvolumen | V_N aus Förderstrom, zulässigen Schaltspielen und Wechselbetrieb; Pegelhub, Ein-/Ausschaltpegel, Lauf- und Stillstandszeiten, Aufenthaltszeit |
+| Abwasser-Druckleitung | v gegen v_min (Ablagerungen), Förderhöhe mit betrieblicher Rauheit k_b, Leitungsinhalt, Aufenthaltszeit (H₂S), Pumpenlaufzeit für Austausch; PE 100 SDR 11/17 und Stahl |
+| Druckstoß (Joukowsky) | Wellengeschwindigkeit aus Rohrelastizität, Reflexionszeit, Joukowsky/Michaud, p_max/p_min gegen PN und Dampfdruck |
+| Faulbehälter – Wärmebedarf | Schlammaufheizung und Transmission, Faulzeit, Jahreswärme, Deckung durch Klärgas (BHKW/Kessel) |
+| Klärgasleitung | Betriebsvolumenstrom, Gasgeschwindigkeit, Druckverlust gegen zulässigen Wert, Kondensatanfall, Brennstoffleistung |
+
+Neue Kette **„Abwasserpumpwerk“**: Druckleitung → Betriebspunkt (mit Beispielkennlinie) → Pumpensumpf →
+Druckstoß → NPSH.
 
 **Werkzeuge (Phase 2)**
 
