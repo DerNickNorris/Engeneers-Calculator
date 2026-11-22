@@ -8,7 +8,7 @@ Systemskizze, Diagramm, PDF-Rechnungsnachweis und Excel/CSV-Export.
 > sind vor Verwendung in Nachweisen von fachkundiger Stelle gegen die jeweilige
 > Originalnorm zu prüfen.
 
-## Stand: Version 0.5.1
+## Stand: Version 0.5.2
 
 **Rechner (Phase 1 und 4)**
 
@@ -143,8 +143,9 @@ unter *Actions › Lauf › Artifacts*: `Ingenieurs-Rechner-Setup` und die porta
 1. Version in `ingrechner/__init__.py` **und** `pyproject.toml` erhöhen (ein Test prüft, dass beide gleich sind).
 2. Nach dem Merge in `main` einen Tag setzen, z. B. `git tag v0.5.0` und `git push origin v0.5.0`
    (oder auf GitHub: *Releases › Draft a new release › Tag v0.5.0*).
-3. Der Workflow baut alles und veröffentlicht das Release mit Setup und portabler ZIP-Datei
-   automatisch. Der Tag muss zur Programmversion passen, sonst bricht der Build ab.
+3. Der Workflow baut alles und hängt Setup und portable ZIP-Datei an das Release an (etwa
+   5 Minuten). Wurde das Release vorher auf GitHub angelegt, werden die Dateien ergänzt.
+   Der Tag muss zur Programmversion passen, sonst bricht der Build ab.
 
 **Lokal unter Windows:** `build.bat` doppelklicken. Ergebnis
 `dist\Ingenieurs-Rechner\Ingenieurs-Rechner.exe`; ist [Inno Setup 6](https://jrsoftware.org/isdl.php)
