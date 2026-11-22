@@ -59,6 +59,15 @@ class AppContext:
     def default_author(self, name: str) -> None:
         self.settings.setValue("user/name", name)
 
+    # -------------------------------------------------------- Updates
+    @property
+    def update_check(self) -> bool:
+        return str(self.settings.value("updates/check", "true")).lower() in ("true", "1")
+
+    @update_check.setter
+    def update_check(self, on: bool) -> None:
+        self.settings.setValue("updates/check", "true" if on else "false")
+
     # ------------------------------------------------- Protokollvorlagen
     @property
     def template_path(self) -> Path:

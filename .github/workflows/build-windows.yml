@@ -7,6 +7,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: write   # nur für das Release bei Versions-Tags benötigt
+
 jobs:
   build:
     runs-on: windows-latest
@@ -23,6 +26,18 @@ jobs:
       - name: Abhängigkeiten installieren
         run: pip install -r requirements-dev.txt
 
+      - name: Version ermitteln
+        id: version
+        shell: pwsh
+        run: |
+          $v = python -c "import ingrechner; print(ingrechner.__version__)"
+          "version=$v" >> $env:GITHUB_OUTPUT
+          Write-Host "Version: $v"
+          if ($env:GITHUB_REF -like "refs/tags/v*" -and $env:GITHUB_REF_NAME -ne "v$v") {
+            Write-Error "Tag $env:GITHUB_REF_NAME passt nicht zur Programmversion $v (ingrechner/__init__.py)."
+            exit 1
+          }
+
       - name: Tests
         run: python -m pytest -q
 
@@ -37,8 +52,70 @@ jobs:
           Get-Content selftest.txt
           if ($p.ExitCode -ne 0) { exit 1 }
 
-      - name: Artefakt hochladen
+      - name: Inno Setup bereitstellen
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          if (-not (Test-Path $iscc)) { Write-Error "ISCC.exe nicht gefunden"; exit 1 }
+          "ISCC=$iscc" >> $env:GITHUB_ENV
+
+      - name: Installer bauen
+        shell: pwsh
+        run: |
+          & $env:ISCC "/DAppVersion=${{ steps.version.outputs.version }}" installer\ingrechner.iss
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Get-ChildItem dist\installer
+
+      - name: Installer testen (still installieren, starten, deinstallieren)
+        shell: pwsh
+        run: |
+          $setup = (Get-ChildItem dist\installer\*.exe | Select-Object -First 1).FullName
+          $dir = Join-Path $env:RUNNER_TEMP "ir-installtest"
+          $p = Start-Process $setup -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/CURRENTUSER",`
+               "/DIR=`"$dir`"","/LOG=`"$env:RUNNER_TEMP\install.log`"" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Get-Content "$env:RUNNER_TEMP\install.log"; exit 1 }
+          $exe = Join-Path $dir "Ingenieurs-Rechner.exe"
+          if (-not (Test-Path $exe)) { Write-Error "Programm wurde nicht installiert"; exit 1 }
+          $p = Start-Process $exe -ArgumentList "--selftest","--selftest-out=$env:RUNNER_TEMP\st-installiert.txt" -Wait -PassThru
+          Get-Content "$env:RUNNER_TEMP\st-installiert.txt"
+          if ($p.ExitCode -ne 0) { exit 1 }
+          foreach ($ext in ".irp", ".irpk") {
+            $val = (Get-ItemProperty "HKCU:\Software\Classes\$ext").'(default)'
+            Write-Host "Dateizuordnung $ext -> $val"
+            if (-not $val) { Write-Error "Dateizuordnung $ext fehlt"; exit 1 }
+          }
+          $lnk = Join-Path ([Environment]::GetFolderPath("Programs")) "Ingenieurs-Rechner.lnk"
+          if (-not (Test-Path $lnk)) { Write-Error "Startmenü-Eintrag fehlt"; exit 1 }
+          Start-Process (Join-Path $dir "unins000.exe") -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART"
+          for ($i = 0; $i -lt 60 -and (Test-Path $exe); $i++) { Start-Sleep -Seconds 1 }
+          if (Test-Path $exe) { Write-Error "Deinstallation unvollständig"; exit 1 }
+          if (Test-Path "HKCU:\Software\Classes\IngRechner.Projekt") { Write-Error "Registry-Reste nach Deinstallation"; exit 1 }
+          Write-Host "Installation, Start, Dateizuordnung und Deinstallation erfolgreich."
+
+      - name: Portable Version packen
+        shell: pwsh
+        run: Compress-Archive -Path dist\Ingenieurs-Rechner -DestinationPath "dist\Ingenieurs-Rechner-${{ steps.version.outputs.version }}-portable.zip"
+
+      - name: Installer hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ingenieurs-Rechner-Setup
+          path: dist/installer/*.exe
+
+      - name: Portable Version hochladen
         uses: actions/upload-artifact@v4
         with:
           name: Ingenieurs-Rechner-windows
           path: dist/Ingenieurs-Rechner
+
+      - name: GitHub-Release veröffentlichen
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create $env:GITHUB_REF_NAME `
+            (Get-ChildItem dist\installer\*.exe).FullName `
+            "dist\Ingenieurs-Rechner-${{ steps.version.outputs.version }}-portable.zip" `
+            --title "Ingenieurs-Rechner ${{ steps.version.outputs.version }}" --generate-notes

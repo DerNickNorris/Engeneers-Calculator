@@ -95,6 +95,13 @@ class SettingsDialog(QDialog):
         self.author = QLineEdit(context.default_author)
         self.author.setPlaceholderText("wird bei neuen Projekten und Protokollen eingetragen")
         form.addRow("Bearbeiter (Standard)", self.author)
+        from PySide6.QtWidgets import QCheckBox
+
+        self.updates = QCheckBox("Beim Start nach neuen Versionen suchen")
+        self.updates.setChecked(context.update_check)
+        self.updates.setToolTip("Fragt die öffentliche GitHub-Seite des Projekts nach dem neuesten Release. "
+                                "Es werden keine Nutzer- oder Projektdaten übertragen.")
+        form.addRow("Updates", self.updates)
         self.tabs.addTab(gen, "Allgemein")
 
         # ------------------------------------------------- Team-Dateien
@@ -246,6 +253,7 @@ class SettingsDialog(QDialog):
 
     def _save(self) -> None:
         self.ctx.default_author = self.author.text().strip()
+        self.ctx.update_check = self.updates.isChecked()
         mp = self.mat_path.text().strip()
         if mp and mp != str(self.ctx.material_path):
             self.ctx.material_path = mp

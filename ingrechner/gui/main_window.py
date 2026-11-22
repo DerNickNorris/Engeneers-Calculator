@@ -31,7 +31,7 @@ PLANNED: dict[str, list[str]] = {}
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, context: AppContext | None = None) -> None:
+    def __init__(self, context: AppContext | None = None, check_updates: bool = False) -> None:
         super().__init__()
         self.ctx = context or AppContext()
         self.settings: QSettings = self.ctx.settings
@@ -47,6 +47,16 @@ class MainWindow(QMainWindow):
         geo = self.settings.value("geometry")
         if geo is not None:
             self.restoreGeometry(geo)
+        from .updates import UpdateChecker
+
+        self.update_badge = None
+        self._manual_update_check = False
+        self.updater = UpdateChecker(self)
+        self.updater.finished.connect(self._update_result)
+        if check_updates and self.ctx.update_check:
+            from PySide6.QtCore import QTimer
+
+            QTimer.singleShot(3000, self.updater.check)
 
     # ---------------------------------------------------------------- UI
     def _build_ui(self) -> None:
@@ -195,6 +205,7 @@ class MainWindow(QMainWindow):
         x = self.menuBar().addMenu("E&xtras")
         x.addAction(act("Einstellungen …", self.edit_settings, QKeySequence.Preferences))
         h = self.menuBar().addMenu("&Hilfe")
+        h.addAction(act("Nach Updates suchen …", self.check_updates_now))
         h.addAction(act("Über …", self.about))
 
         tb = QToolBar("Werkzeugleiste")
@@ -445,6 +456,41 @@ class MainWindow(QMainWindow):
                 if view is not None and hasattr(view, "refresh"):
                     view.refresh()
             self.statusBar().showMessage("Einstellungen gespeichert", 4000)
+
+    def open_file(self, path: str) -> None:
+        """Datei per Doppelklick/Kommandozeile öffnen (.irp Projekt, .irpk Protokoll)."""
+        from ingrechner.core.protocols import PROTOCOL_SUFFIX
+
+        if path.lower().endswith(PROTOCOL_SUFFIX):
+            self.open_tool("proto.editor").open(path)
+        elif path.lower().endswith(FILE_SUFFIX):
+            self.open_project(path)
+
+    def check_updates_now(self) -> None:
+        self._manual_update_check = True
+        self.statusBar().showMessage("Suche nach Updates …", 3000)
+        self.updater.check()
+
+    def _update_result(self, info, error: str) -> None:
+        from ingrechner import __version__
+        from ingrechner.core.updates import is_newer
+
+        from .updates import UpdateBadge, show_update_dialog
+
+        manual, self._manual_update_check = self._manual_update_check, False
+        if info is not None and is_newer(info.version):
+            if self.update_badge is None:
+                self.update_badge = UpdateBadge(info, self)
+                self.statusBar().addPermanentWidget(self.update_badge)
+            if manual:
+                show_update_dialog(self, info)
+        elif manual:
+            if error:
+                QMessageBox.warning(self, "Update-Prüfung",
+                                    f"Die Update-Prüfung ist fehlgeschlagen (Internetverbindung?):\n{error}")
+            else:
+                QMessageBox.information(self, "Update-Prüfung",
+                                        f"Sie verwenden die aktuelle Version ({__version__}).")
 
     def about(self) -> None:
         QMessageBox.about(self, f"Über {APP_NAME}", ABOUT_HTML)

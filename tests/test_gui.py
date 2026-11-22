@@ -243,3 +243,24 @@ def test_vorlagen_editor(window, tmp_path):
     assert view.save()
     reloaded = window.ctx.templates.get(view.current.id)
     assert "Bemerkungen" in [b.titel for b in reloaded.blocks]
+
+
+# ------------------------------------------------------------- Installer / Updates
+def test_datei_oeffnen_per_doppelklick(window, tmp_path):
+    from ingrechner.core.protocols import Protocol
+
+    proto = Protocol.new(window.ctx.templates.get("b:gespraechsnotiz"), "42")
+    path = proto.save(tmp_path / "notiz")
+    window.open_file(str(path))
+    view = window.stack.currentWidget()
+    assert view.proto is not None and view.proto.nummer == "42"
+
+
+def test_update_hinweis(window):
+    from ingrechner import __version__
+    from ingrechner.core.updates import ReleaseInfo
+
+    window._update_result(ReleaseInfo(__version__, "https://example.org", None), "")
+    assert window.update_badge is None                         # gleiche Version -> kein Hinweis
+    window._update_result(ReleaseInfo("99.0.0", "https://example.org", None), "")
+    assert window.update_badge is not None and "99.0.0" in window.update_badge.text()
