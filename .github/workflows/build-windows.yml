@@ -115,7 +115,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create $env:GITHUB_REF_NAME `
-            (Get-ChildItem dist\installer\*.exe).FullName `
-            "dist\Ingenieurs-Rechner-${{ steps.version.outputs.version }}-portable.zip" `
-            --title "Ingenieurs-Rechner ${{ steps.version.outputs.version }}" --generate-notes
+          $tag = $env:GITHUB_REF_NAME
+          $files = @((Get-ChildItem dist\installer\*.exe).FullName,
+                     "dist\Ingenieurs-Rechner-${{ steps.version.outputs.version }}-portable.zip")
+          # Wurde das Release vorher auf GitHub angelegt, nur die Dateien anhängen
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Release $tag existiert bereits – Dateien werden angehängt."
+            gh release upload $tag @files --clobber
+          } else {
+            gh release create $tag @files --title "Ingenieurs-Rechner ${{ steps.version.outputs.version }}" --generate-notes
+          }
+          if ($LASTEXITCODE -ne 0) { exit 1 }
