@@ -32,11 +32,12 @@ def main(argv: list[str] | None = None) -> int:
     app.setApplicationName(APP_NAME)
     app.setOrganizationName("Ingenieurs-Rechner")
     apply_theme(app)
-    win = MainWindow()
+    win = MainWindow(check_updates=True)
     win.show()
-    # Projektdatei per Doppelklick / Kommandozeile öffnen
-    if len(argv) > 1 and argv[1].lower().endswith(".irp"):
-        win.open_project(argv[1])
+    # Projekt- oder Protokolldatei per Doppelklick / Kommandozeile öffnen
+    files = [a for a in argv[1:] if not a.startswith("--")]
+    if files:
+        win.open_file(files[0])
     return app.exec()
 
 

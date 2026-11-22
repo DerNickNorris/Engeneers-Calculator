@@ -8,7 +8,7 @@ Systemskizze, Diagramm, PDF-Rechnungsnachweis und Excel/CSV-Export.
 > sind vor Verwendung in Nachweisen von fachkundiger Stelle gegen die jeweilige
 > Originalnorm zu prüfen.
 
-## Stand: Phase 4 (Version 0.4.0)
+## Stand: Version 0.5.0
 
 **Rechner (Phase 1 und 4)**
 
@@ -110,14 +110,42 @@ Die Tests prüfen die Formeln gegen unabhängige Referenzwerte (Handrechnung,
 Moody-Diagramm, Tabellenwerte), außerdem alle Auswahlkombinationen, Projektdatei,
 Exporte, PDF-Erzeugung und einen Rauchtest der Oberfläche (headless).
 
-## Windows-EXE bauen
+## Installation (für Anwender)
 
-Lokal unter Windows: `build.bat` doppelklicken. Ergebnis:
-`dist\Ingenieurs-Rechner\Ingenieurs-Rechner.exe` – zum Weitergeben den ganzen
-Ordner `dist\Ingenieurs-Rechner` zippen (kein Python auf dem Zielrechner nötig).
+Unter **Releases** auf GitHub die Datei `Ingenieurs-Rechner-Setup-<Version>.exe` herunterladen
+und starten.
 
-Alternativ automatisch über GitHub Actions (`.github/workflows/build-windows.yml`):
-Tests → EXE → Selbsttest der EXE → Download als Artefakt.
+- Ohne Administratorrechte wird nur für den angemeldeten Benutzer installiert; im ersten Dialog
+  lässt sich „für alle Benutzer“ wählen (dann sind Administratorrechte nötig).
+- Startmenü-Eintrag, optional Desktop-Verknüpfung, Doppelklick auf `.irp` (Projekte) und
+  `.irpk` (Protokolle) öffnet die App.
+- **Update:** neues Setup einfach darüber installieren – Einstellungen, Projekte, Materialien
+  und Vorlagen bleiben erhalten. Die App weist beim Start auf neue Versionen hin
+  (abschaltbar unter *Extras › Einstellungen › Allgemein*; dabei wird nur die öffentliche
+  GitHub-Seite abgefragt, es werden keine Daten übertragen). Manuell: *Hilfe › Nach Updates suchen*.
+- **Deinstallation:** Windows-Einstellungen › Apps › „Ingenieurs-Rechner“.
+- Stille Installation für die IT/Softwareverteilung:
+  `Ingenieurs-Rechner-Setup-x.y.z.exe /VERYSILENT /SUPPRESSMSGBOXES /ALLUSERS`
+- Das Setup ist nicht signiert: Windows SmartScreen zeigt beim ersten Start eine Warnung
+  („Weitere Informationen“ › „Trotzdem ausführen“).
+
+## Windows-EXE und Installer bauen
+
+**Automatisch (GitHub Actions, `.github/workflows/build-windows.yml`)** – bei jedem Push und
+Pull Request: Tests → EXE → Selbsttest → Installer → Testinstallation (still installieren,
+installierte App starten, Dateizuordnung und Startmenü prüfen, deinstallieren). Downloads
+unter *Actions › Lauf › Artifacts*: `Ingenieurs-Rechner-Setup` und die portable Version.
+
+**Neue Version veröffentlichen:**
+1. Version in `ingrechner/__init__.py` **und** `pyproject.toml` erhöhen (ein Test prüft, dass beide gleich sind).
+2. Nach dem Merge in `main` einen Tag setzen, z. B. `git tag v0.5.0` und `git push origin v0.5.0`
+   (oder auf GitHub: *Releases › Draft a new release › Tag v0.5.0*).
+3. Der Workflow baut alles und veröffentlicht das Release mit Setup und portabler ZIP-Datei
+   automatisch. Der Tag muss zur Programmversion passen, sonst bricht der Build ab.
+
+**Lokal unter Windows:** `build.bat` doppelklicken. Ergebnis
+`dist\Ingenieurs-Rechner\Ingenieurs-Rechner.exe`; ist [Inno Setup 6](https://jrsoftware.org/isdl.php)
+installiert, zusätzlich `dist\installer\Ingenieurs-Rechner-Setup-<Version>.exe`.
 
 Selbsttest einer fertigen EXE: `Ingenieurs-Rechner.exe --selftest --selftest-out=st.txt`
 (optional mit echter Spracherkennung: `--selftest-model=<Modellordner> --selftest-audio=<datei.wav>`).
@@ -142,6 +170,7 @@ ingrechner/
     protocols/     Protokollansicht und Vorlagen-Editor
     dictation.py   Mikrofonaufnahme und Diktat-Schaltfläche
   resources/       Icon, materials.json, protocol_templates.json
+installer/         Inno-Setup-Skript für den Windows-Installer
 tests/
 ```
 

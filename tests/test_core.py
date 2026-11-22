@@ -119,3 +119,77 @@ def test_exporte_und_pdf(cls, tmp_path):
     pdf = build_pdf(tmp_path / "b.pdf", calc, raw, res, meta, "Pos. 1", None, png)
     data = pdf.read_bytes()
     assert data.startswith(b"%PDF") and len(data) > 5000
+
+
+# ------------------------------------------------------------- Updates
+class _FakeResp:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def read(self):
+        import json as _j
+
+        return _j.dumps(self.payload).encode()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+def test_versionsvergleich():
+    from ingrechner.core.updates import is_newer, parse_version
+
+    assert parse_version("v1.2") == (1, 2, 0)
+    assert parse_version("0.10.1-beta") == (0, 10, 1)
+    assert is_newer("v0.10.0", "0.9.5") and not is_newer("0.5.0", "0.5.0")
+    assert not is_newer("unsinn", "0.5.0")
+
+
+def test_release_abfrage():
+    from ingrechner.core.updates import API_URL, fetch_latest
+
+    seen = {}
+
+    def opener(req, timeout):
+        seen["url"], seen["ua"] = req.full_url, req.get_header("User-agent")
+        return _FakeResp({"tag_name": "v9.9.9", "html_url": "https://example.org/rel", "body": "Neu",
+                          "assets": [{"name": "Ingenieurs-Rechner-Setup-9.9.9.exe",
+                                      "browser_download_url": "https://example.org/setup.exe"},
+                                     {"name": "portable.zip", "browser_download_url": "https://example.org/p.zip"}]})
+
+    info = fetch_latest(opener=opener)
+    assert seen["url"] == API_URL and seen["ua"].startswith("Ingenieurs-Rechner/")
+    assert (info.version, info.installer_url) == ("9.9.9", "https://example.org/setup.exe")
+
+
+def test_noch_kein_release():
+    import urllib.error
+
+    from ingrechner.core.updates import fetch_latest
+
+    def opener(req, timeout):
+        raise urllib.error.HTTPError(req.full_url, 404, "Not Found", {}, None)
+
+    assert fetch_latest(opener=opener) is None
+
+
+def test_versionen_konsistent():
+    import pathlib
+    import re
+
+    import ingrechner
+
+    root = pathlib.Path(__file__).resolve().parent.parent
+    toml = (root / "pyproject.toml").read_text(encoding="utf-8")
+    assert re.search(r'^version = "([^"]+)"', toml, re.M).group(1) == ingrechner.__version__
+
+
+def test_installer_skript():
+    import pathlib
+
+    iss = (pathlib.Path(__file__).resolve().parent.parent / "installer" / "ingrechner.iss").read_text(encoding="utf-8")
+    assert "AppId={{CED6D8DE-0288-46B4-874B-8DE5693DA2F7}" in iss   # darf sich nie ändern
+    for needed in (".irp", ".irpk", "German.isl", "PrivilegesRequired=lowest", "ingrechner\\resources\\icon.ico"):
+        assert needed in iss
