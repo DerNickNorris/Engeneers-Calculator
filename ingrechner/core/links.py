@@ -359,6 +359,22 @@ KETTEN = [
               ("mb.passfeder", "Getriebe – Passfeder Abtrieb", {"T": (0, ERGEBNIS, "M2"), "KA": (0, ERGEBNIS, "fB")},
                {"d": 60, "L": 90}),
           ]),
+    Kette("Antrieb mit Asynchronmotor",
+          "Motorauswahl → Kenndaten & Kennlinie → Anlauf & Hochlauf → Zuleitung & Schutz → Energieeffizienz", [
+              ("et.motorauswahl", "Motor – Auswahl", {}),
+              ("et.motordaten", "Motor – Kenndaten", {
+                  "PN": (0, ERGEBNIS, "PN"), "nN": (0, ERGEBNIS, "nN"), "eta": (0, ERGEBNIS, "eta_typ"),
+                  "cosphi": (0, ERGEBNIS, "cos_typ"), "ia": (0, ERGEBNIS, "ia_typ"), "ma": (0, ERGEBNIS, "ma_typ"),
+                  "mk": (0, ERGEBNIS, "mk_typ"), "ML": (0, ERGEBNIS, "ML")}),
+              ("et.motoranlauf", "Motor – Anlauf", {
+                  **{k: (1, EINGABE, k) for k in ("PN", "UN", "f", "nN", "eta", "cosphi", "ia", "ma", "mk")},
+                  "JM": (0, ERGEBNIS, "J_typ"), "ML": (0, ERGEBNIS, "ML")}, {"last": "konstant"}),
+              ("et.motorzuleitung", "Motor – Zuleitung & Schutz", {
+                  "IN": (1, ERGEBNIS, "IN"), "cosphi": (1, EINGABE, "cosphi"), "ia": (1, EINGABE, "ia"),
+                  "UN": (1, EINGABE, "UN"), "tA": (2, ERGEBNIS, "tA")}, {"vorgabe": "strom"}),
+              ("et.motoreffizienz", "Motor – Energieeffizienz", {"PN": (0, ERGEBNIS, "PN"),
+                                                                  "last": (0, ERGEBNIS, "last")}),
+          ]),
 ]
 
 

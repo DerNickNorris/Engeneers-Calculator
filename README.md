@@ -8,7 +8,7 @@ Systemskizze, Diagramm, PDF-Rechnungsnachweis und Excel/CSV-Export.
 > sind vor Verwendung in Nachweisen von fachkundiger Stelle gegen die jeweilige
 > Originalnorm zu prüfen.
 
-## Stand: Version 0.15.0
+## Stand: Version 0.16.0
 
 **Rechner (Phase 1 und 4)**
 
@@ -165,6 +165,19 @@ vereinfachter Tragfähigkeitsnachweis:
 | Rollenkettentrieb | DIN 8187: Kettenzug, Bruchsicherheit, Gliederzahl, Achsabstand, Polygoneffekt |
 
 Neue Kette **„Getriebeauslegung“**: Antrieb → Übersetzung → Stirnrad → Tragfähigkeit → Lager → Passfeder.
+
+**Elektromotoren – Drehstrom-Asynchronmotoren (Version 0.16, Kategorie Elektrotechnik)**
+
+| Rechner | Inhalt |
+|---------|--------|
+| Asynchronmotor – Auswahl | Lastfall (frei, Pumpe/Lüfter/Rührwerk, Förderband, Hubwerk, Fahrwerk), Betriebsart S1/S2/S3/S6, Abminderung für Kühlmitteltemperatur und Aufstellhöhe, IEC-Baugröße, typische Katalogwerte, Mindest-Effizienzklasse nach EU 2019/1781 |
+| Asynchronmotor – Kenndaten & Kennlinie | Typenschild → I_N, M_N, Polzahl, Schlupf, S, Q, M_A, M_K; Kloss-Kennlinie (an M_A angepasst), Betriebspunkt mit Lastkennlinie, Teillast |
+| Asynchronmotor – Anlauf & Hochlauf | Direkt, Stern-Dreieck, Sanftanlauf (Strombegrenzung), FU; Hochlaufzeit (numerisch), Läuferwärme, Schalthäufigkeit, Spannungsfall beim Anlauf |
+| Asynchronmotor – Frequenzumrichter | Eckfrequenz/Feldschwächung, 87-Hz-Kennlinie, Dauermoment bei Eigen-/Fremdbelüftung, Kippreserve, FU-Strom, Bremsleistung und Bremswiderstand |
+| Motorzuleitung & Schutz | Motorschutz-Einstellwert, Querschnitt nach Strombelastbarkeit (Verlegeart, Temperatur, Häufung) und Spannungsfall Betrieb/Anlauf, gG-Vorsicherung nach Anlaufstrom und -zeit |
+| Motor – Energieeffizienz | IE2/IE3/IE4 bzw. Katalogwerte im Teillastvergleich, Energie, Kosten, CO₂, Amortisation |
+
+Neue Kette **„Antrieb mit Asynchronmotor“**: Auswahl → Kenndaten → Anlauf → Zuleitung → Effizienz.
 
 **Werkzeuge (Phase 2)**
 
